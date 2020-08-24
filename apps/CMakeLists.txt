@@ -1,0 +1,8 @@
+file(GLOB apps "btoep-*.c")
+file(GLOB util_files "util/*.c")
+foreach(file ${apps})
+  get_filename_component(fname ${file} NAME_WE)
+  add_executable(${fname} ${file} ${util_files})
+  target_link_libraries(${fname} PUBLIC btoep)
+  target_include_directories(${fname} PUBLIC "${PROJECT_SOURCE_DIR}/lib/include")
+endforeach()

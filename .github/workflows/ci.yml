@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  test:
+    runs-on: ${{matrix.os}}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macOS-latest
+        buildtype:
+          - Release
+          - Debug
+          - MinSizeRel
+          - RelWithDebInfo
+        linktype:
+          - static
+          - dynamic
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+      - name: Create Build Environment
+        run: cmake -E make_directory ${{runner.workspace}}/build
+      - name: Configure CMake
+        working-directory: ${{runner.workspace}}/build
+        run: cmake ${{github.workspace}} -DCMAKE_BUILD_TYPE=${{matrix.buildtype}} -DBUILD_SHARED_LIBS=${{fromJson('{"static":"OFF","dynamic":"ON"}')[matrix.linktype]}}
+      - name: Build
+        working-directory: ${{runner.workspace}}/build
+        run: cmake --build . --config ${{matrix.buildtype}}
+      - name: Test
+        working-directory: ${{runner.workspace}}/build
+        run: ctest -C ${{matrix.buildtype}} --output-on-failure
