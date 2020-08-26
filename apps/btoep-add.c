@@ -125,7 +125,7 @@ int main(int argc, char** argv) {
 
   if (length != 0) {
     btoep_range added_range = { offset, length };
-    if (!btoep_index_add(&dataset, &added_range)) {
+    if (!btoep_index_add(&dataset, added_range)) {
       printf("error\n");
       // TODO
     }

@@ -32,19 +32,20 @@ static bool range_extend(uint64_t* offset, uint64_t* length, uint64_t right, uin
   return true;
 }
 
-bool btoep_range_union(btoep_range* out, const btoep_range* in) {
-  return range_extend(&out->offset, &out->length, in->offset, in->length, true);
+bool btoep_range_union(btoep_range* out, btoep_range in) {
+  return range_extend(&out->offset, &out->length, in.offset, in.length, true);
 }
 
-void btoep_range_outer(btoep_range* out, const btoep_range* in) {
-  range_extend(&out->offset, &out->length, in->offset, in->length, false);
+btoep_range btoep_range_outer(btoep_range out, btoep_range in) {
+  range_extend(&out.offset, &out.length, in.offset, in.length, false);
+  return out;
 }
 
-bool btoep_range_intersect(btoep_range* out, const btoep_range* in) {
+bool btoep_range_intersect(btoep_range* out, btoep_range in) {
   uint64_t small_offset = out->offset,
            small_length = out->length,
-           large_offset = in->offset,
-           large_length = in->length,
+           large_offset = in.offset,
+           large_length = in.length,
            small_end    = small_offset + small_length,
            large_end    = large_offset + large_length;
 
@@ -74,33 +75,32 @@ bool btoep_range_intersect(btoep_range* out, const btoep_range* in) {
   return true;
 }
 
-bool btoep_range_overlaps(const btoep_range* a, const btoep_range* b) {
-  return a->length != 0 && b->length != 0 && (
-           btoep_range_contains(a, b->offset) ||
-           btoep_range_contains(a, b->offset + b->length - 1) ||
-           btoep_range_contains(b, a->offset) ||
-           btoep_range_contains(b, a->offset + a->length - 1)
+bool btoep_range_overlaps(btoep_range a, btoep_range b) {
+  return a.length != 0 && b.length != 0 && (
+           btoep_range_contains(a, b.offset) ||
+           btoep_range_contains(a, b.offset + b.length - 1) ||
+           btoep_range_contains(b, a.offset) ||
+           btoep_range_contains(b, a.offset + a.length - 1)
          );
 }
 
-bool btoep_range_contains(const btoep_range* range, uint64_t offset) {
-  return range->offset <= offset && offset < range->offset + range->length;
+bool btoep_range_contains(btoep_range range, uint64_t offset) {
+  return range.offset <= offset && offset < range.offset + range.length;
 }
 
-bool btoep_range_is_subset(const btoep_range* super, const btoep_range* sub) {
-  return sub->length == 0 || (
-           btoep_range_contains(super, sub->offset) &&
-           btoep_range_contains(super, sub->offset + sub->length - 1)
+bool btoep_range_is_subset(btoep_range super, btoep_range sub) {
+  return sub.length == 0 || (
+           btoep_range_contains(super, sub.offset) &&
+           btoep_range_contains(super, sub.offset + sub.length - 1)
          );
 }
 
-void btoep_range_remove(btoep_range* left_in, btoep_range* right, const btoep_range* remove) {
-  btoep_range relevant = *remove;
-  if (btoep_range_intersect(&relevant, left_in)) {
+void btoep_range_remove(btoep_range* left_in, btoep_range* right, btoep_range remove) {
+  if (btoep_range_intersect(&remove, *left_in)) {
     uint64_t old_length = left_in->length;
-    left_in->length = relevant.offset - left_in->offset;
-    right->offset = relevant.offset + relevant.length;
-    right->length = old_length - left_in->length - relevant.length;
+    left_in->length = remove.offset - left_in->offset;
+    right->offset = remove.offset + remove.length;
+    right->length = old_length - left_in->length - remove.length;
   } else {
     right->offset = left_in->offset + left_in->length;
     right->length = 0;

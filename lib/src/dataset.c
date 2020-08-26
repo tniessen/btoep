@@ -105,8 +105,7 @@ bool btoep_open(btoep_dataset* dataset, const char* data_path, const char* index
   dataset->total_index_size = dataset->total_index_size_on_disk;
   dataset->current_index_offset = 0;
 
-  dataset->index_cache_range.offset = 0;
-  dataset->index_cache_range.length = 0;
+  dataset->index_cache_range = btoep_mkrange(0, 0);
   dataset->index_cache_is_dirty = false;
 
   return true;
@@ -142,8 +141,8 @@ void btoep_get_error(btoep_dataset* dataset, int* code, const char** message) {
   }
 }
 
-bool btoep_data_add_range(btoep_dataset* dataset, const btoep_range* range, const void* data, int conflict_mode) {
-  return btoep_data_write(dataset, range->offset, data, range->length, conflict_mode) &&
+bool btoep_data_add_range(btoep_dataset* dataset, btoep_range range, const void* data, int conflict_mode) {
+  return btoep_data_write(dataset, range.offset, data, range.length, conflict_mode) &&
          btoep_index_add(dataset, range);
 }
 
@@ -158,11 +157,10 @@ bool btoep_data_write(btoep_dataset* dataset, uint64_t offset, const void* data,
 
   while (length != 0) {
     // Try to find an index entry that covers at least some area after the start of the remaining data.
-    btoep_range remaining_range = { offset, length };
     while (!btoep_index_iterator_is_eof(dataset)) {
       if (!btoep_index_iterator_peek(dataset, &entry))
         return false;
-      if (btoep_range_intersect(&entry, &remaining_range))
+      if (btoep_range_intersect(&entry, btoep_mkrange(offset, length)))
         break;
       if (!btoep_index_iterator_skip(dataset))
         return false;
@@ -214,7 +212,7 @@ bool btoep_data_write(btoep_dataset* dataset, uint64_t offset, const void* data,
   return true;
 }
 
-bool btoep_data_read_range(btoep_dataset* dataset, const btoep_range* range, void* data, size_t* data_size) {
+bool btoep_data_read_range(btoep_dataset* dataset, btoep_range range, void* data, size_t* data_size) {
   // First, ensure that the given range exists.
   bool valid;
   if (!btoep_index_contains(dataset, range, &valid))
@@ -222,24 +220,21 @@ bool btoep_data_read_range(btoep_dataset* dataset, const btoep_range* range, voi
   if (!valid)
     return set_error(dataset, B_ERR_READ_OUT_OF_BOUNDS, false);
 
-  size_t length = range->length;
-  if (data_size != NULL && length > *data_size)
-    length = *data_size;
-
-  size_t remaining = length;
-  uint64_t offset = range->offset;
-  while (remaining != 0) {
-    size_t n_read = remaining;
-    if (!btoep_data_read(dataset, offset, data, &n_read))
-      return false;
-    assert(n_read != 0);
-    offset += n_read;
-    remaining -= n_read;
-    data = ((uint8_t*) data) + n_read;
+  if (data_size != NULL) {
+    if (range.length > *data_size)
+      range.length = *data_size;
+    *data_size = range.length;
   }
 
-  if (data_size != NULL)
-    *data_size = length;
+  while (range.length != 0) {
+    size_t n_read = range.length;
+    if (!btoep_data_read(dataset, range.offset, data, &n_read))
+      return false;
+    assert(n_read != 0);
+    range.offset += n_read;
+    range.length -= n_read;
+    data = ((uint8_t*) data) + n_read;
+  }
 
   return true;
 }
@@ -267,11 +262,11 @@ bool btoep_data_set_size(btoep_dataset* dataset, uint64_t size, bool allow_destr
   if (allow_destructive) {
     // This might not actually remove anything from the index, in which case the
     // action was not destructive.
-    if (!btoep_index_remove(dataset, &relevant_range))
+    if (!btoep_index_remove(dataset, relevant_range))
       return false;
   } else {
     bool is_destructive;
-    if (!btoep_index_contains_any(dataset, &relevant_range, &is_destructive))
+    if (!btoep_index_contains_any(dataset, relevant_range, &is_destructive))
       return false;
     if (is_destructive)
       return set_error(dataset, B_ERR_DESTRUCTIVE_ACTION, false);
@@ -280,16 +275,17 @@ bool btoep_data_set_size(btoep_dataset* dataset, uint64_t size, bool allow_destr
   return ftruncate(dataset->data_fd, size) == 0;
 }
 
-static void btoep_index_cache_mark_dirty(btoep_dataset* dataset, const btoep_range* range) {
+static void btoep_index_cache_mark_dirty(btoep_dataset* dataset, btoep_range range) {
   if (dataset->index_cache_is_dirty) {
-    btoep_range_outer(&dataset->index_cache_dirty_range, range);
+    dataset->index_cache_dirty_range =
+        btoep_range_outer(dataset->index_cache_dirty_range, range);
   } else {
     dataset->index_cache_is_dirty = true;
-    dataset->index_cache_dirty_range = *range;
+    dataset->index_cache_dirty_range = range;
   }
 
-  assert(btoep_range_is_subset(&dataset->index_cache_range,
-                               &dataset->index_cache_dirty_range));
+  assert(btoep_range_is_subset(dataset->index_cache_range,
+                               dataset->index_cache_dirty_range));
 }
 
 static bool btoep_index_resize(btoep_dataset* dataset, uint64_t new_size) {
@@ -298,7 +294,7 @@ static bool btoep_index_resize(btoep_dataset* dataset, uint64_t new_size) {
   dataset->index_cache_range.length = new_size - dataset->index_cache_range.offset;
   if (dataset->index_cache_is_dirty) {
     if (!btoep_range_intersect(&dataset->index_cache_dirty_range,
-                               &dataset->index_cache_range)) {
+                               dataset->index_cache_range)) {
       dataset->index_cache_is_dirty = false;
     }
   }
@@ -335,26 +331,24 @@ static bool btoep_read_index(btoep_dataset* dataset, uint64_t offset, uint8_t* d
  * This function may succeed without filling the cache sufficiently if the file
  * itself does not contain more data.
  */
-static bool btoep_index_fill_cache(btoep_dataset* dataset, const btoep_range* original_range) {
-  btoep_range range = *original_range;
+static bool btoep_index_fill_cache(btoep_dataset* dataset, btoep_range range) {
   btoep_range index_range = { 0, dataset->total_index_size };
-  if (!btoep_range_intersect(&range, &index_range))
+  if (!btoep_range_intersect(&range, index_range))
     return true;
 
   // If the range is already in the cache, don't do anything.
-  if (btoep_range_is_subset(&dataset->index_cache_range, &range))
+  if (btoep_range_is_subset(dataset->index_cache_range, range))
     return true;
 
   assert(range.length <= BTOEP_INDEX_CACHE_SIZE);
 
   // Does the required range fit into the cache with its current offset?
   btoep_range max_range = { dataset->index_cache_range.offset, BTOEP_INDEX_CACHE_SIZE };
-  if (!btoep_range_is_subset(&range, &max_range)) {
+  if (!btoep_range_is_subset(range, max_range)) {
     // TODO: Keep the existing data in the cache (move it), don't just throw it away.
     if (!btoep_index_flush(dataset))
       return false;
-    dataset->index_cache_range.offset = range.offset;
-    dataset->index_cache_range.length = 0;
+    dataset->index_cache_range = btoep_mkrange(range.offset, 0);
   }
 
   size_t read_bytes;
@@ -412,7 +406,7 @@ static inline void write_uleb128(uint8_t* out, uint64_t value, size_t* length) {
 
 static bool btoep_index_read(btoep_dataset* dataset, uint64_t* next_offset, btoep_range* range) {
   btoep_range cache_range = { dataset->iter_index_offset, 1024 };
-  if (!btoep_index_fill_cache(dataset, &cache_range))
+  if (!btoep_index_fill_cache(dataset, cache_range))
     return false;
 
   uint64_t missing_bytes, existing_bytes;
@@ -508,7 +502,7 @@ static bool editor_commit(index_editor* editor) {
     .offset = editor->replace_start,
     .length = dataset->total_index_size - editor->replace_start
   };
-  if (!btoep_index_fill_cache(dataset, &cache_range))
+  if (!btoep_index_fill_cache(dataset, cache_range))
     return false;
 
   uint64_t replace_end = editor->replace_start + editor->replace_length;
@@ -526,18 +520,17 @@ static bool editor_commit(index_editor* editor) {
   // Make sure the changes in the cache will be written to disk eventually.
   // TODO: Make this work if the data does not fit into the cache
   cache_range.length = new_index_size - editor->replace_start;
-  btoep_index_cache_mark_dirty(dataset, &cache_range);
+  btoep_index_cache_mark_dirty(dataset, cache_range);
 
   return true;
 }
 
 // TODO: Avoid writing the same entry if a duplicate entry is added (just to avoid dirtying the cache)
-bool btoep_index_add(btoep_dataset* dataset, const btoep_range* original_range) {
+bool btoep_index_add(btoep_dataset* dataset, btoep_range range) {
   if (!btoep_index_iterator_start(dataset))
     return false;
 
   btoep_range entry;
-  btoep_range range = *original_range;
 
   index_editor editor;
   uint8_t editor_buffer[40];
@@ -559,7 +552,7 @@ bool btoep_index_add(btoep_dataset* dataset, const btoep_range* original_range) 
   while (!btoep_index_iterator_is_eof(dataset)) {
     if (!btoep_index_iterator_peek(dataset, &entry))
       return false;
-    if (!btoep_range_union(&range, &entry))
+    if (!btoep_range_union(&range, entry))
       break;
     if (!btoep_index_iterator_skip(dataset))
       return false;
@@ -579,7 +572,7 @@ bool btoep_index_add(btoep_dataset* dataset, const btoep_range* original_range) 
   return editor_commit(&editor);
 }
 
-bool btoep_index_remove(btoep_dataset* dataset, const btoep_range* range) {
+bool btoep_index_remove(btoep_dataset* dataset, btoep_range range) {
   if (!btoep_index_iterator_start(dataset))
     return false;
 
@@ -593,7 +586,7 @@ bool btoep_index_remove(btoep_dataset* dataset, const btoep_range* range) {
   while (!btoep_index_iterator_is_eof(dataset)) {
     if (!btoep_index_iterator_peek(dataset, &entry))
       return false;
-    if (entry.offset + entry.length >= range->offset)
+    if (entry.offset + entry.length >= range.offset)
       break;
     if (!btoep_index_iterator_skip(dataset))
       return false;
@@ -604,7 +597,7 @@ bool btoep_index_remove(btoep_dataset* dataset, const btoep_range* range) {
   while (!btoep_index_iterator_is_eof(dataset)) {
     if (!btoep_index_iterator_peek(dataset, &entry))
       return false;
-    if (!btoep_range_overlaps(&entry, range))
+    if (!btoep_range_overlaps(entry, range))
       break;
     if (!btoep_index_iterator_skip(dataset))
       return false;
@@ -629,13 +622,13 @@ bool btoep_index_remove(btoep_dataset* dataset, const btoep_range* range) {
   return editor_commit(&editor);
 }
 
-bool btoep_index_contains(btoep_dataset* dataset, const btoep_range* range, bool* result) {
-  if (range->length == 0) {
+bool btoep_index_contains(btoep_dataset* dataset, btoep_range range, bool* result) {
+  if (range.length == 0) {
     uint64_t max_offset;
     // TODO: What if size < last index entry end?
     if (!btoep_data_get_size(dataset, &max_offset))
       return false;
-    *result = range->offset <= max_offset;
+    *result = range.offset <= max_offset;
     return true;
   }
 
@@ -647,12 +640,12 @@ bool btoep_index_contains(btoep_dataset* dataset, const btoep_range* range, bool
     if (!btoep_index_iterator_next(dataset, &entry))
       return false;
 
-    if (btoep_range_is_subset(&entry, range)) {
+    if (btoep_range_is_subset(entry, range)) {
       *result = true;
       return true;
     }
 
-    if (entry.offset >= range->offset)
+    if (entry.offset >= range.offset)
       break;
   }
 
@@ -660,7 +653,7 @@ bool btoep_index_contains(btoep_dataset* dataset, const btoep_range* range, bool
   return true;
 }
 
-bool btoep_index_contains_any(btoep_dataset* dataset, const btoep_range* range, bool* result) {
+bool btoep_index_contains_any(btoep_dataset* dataset, btoep_range range, bool* result) {
   if (!btoep_index_iterator_start(dataset))
     return false;
 
@@ -674,7 +667,7 @@ bool btoep_index_contains_any(btoep_dataset* dataset, const btoep_range* range, 
       return true;
     }
 
-    if (entry.offset >= range->offset + range->length)
+    if (entry.offset >= range.offset + range.length)
       break;
   }
 

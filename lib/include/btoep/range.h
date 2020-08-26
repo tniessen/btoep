@@ -4,8 +4,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// TODO: Consider switching to pass-by-value whenever possible.
-
 /*
  * A range (offset, length) is the set of 64-bit integers i such that
  * i >= offset and i < offset + length. (This does not match the usual
@@ -21,13 +19,19 @@ typedef struct {
   uint64_t length;
 } btoep_range;
 
+static inline btoep_range btoep_mkrange(uint64_t offset, uint64_t length) {
+  // TODO: Assert that offset + length does not overflow
+  btoep_range range = { offset, length };
+  return range;
+}
+
 /*
  * For ranges A and B, calculate the union of A and B. This fails if A and B
  * are neither adjacent nor overlapping.
  *
  * If either range is empty, the other range is returned.
  */
-bool btoep_range_union(btoep_range* out, const btoep_range* in);
+bool btoep_range_union(btoep_range* out, btoep_range in);
 
 /*
  * For ranges A and B, calculate the smallest range that contains all elements
@@ -35,7 +39,7 @@ bool btoep_range_union(btoep_range* out, const btoep_range* in);
  *
  * If either range is empty, the other range is returned.
  */
-void btoep_range_outer(btoep_range* out, const btoep_range* in);
+btoep_range btoep_range_outer(btoep_range a, btoep_range b);
 
 /*
  * For ranges A and B, calculate the intersection of A and B, that is, the
@@ -44,7 +48,7 @@ void btoep_range_outer(btoep_range* out, const btoep_range* in);
  * If the result would be empty, e.g., because either range was empty, this
  * function returns false, and the result is unmodified.
  */
-bool btoep_range_intersect(btoep_range* out, const btoep_range* in);
+bool btoep_range_intersect(btoep_range* out, btoep_range in);
 
 /*
  * Checks whether ranges A and B overlap, meaning that either range contains
@@ -52,24 +56,24 @@ bool btoep_range_intersect(btoep_range* out, const btoep_range* in);
  *
  * If either range is empty, this returns false.
  */
-bool btoep_range_overlaps(const btoep_range* a, const btoep_range* b);
+bool btoep_range_overlaps(btoep_range a, btoep_range b);
 
 /*
  * Checks whether the given range contains the given offset.
  */
-bool btoep_range_contains(const btoep_range* range, uint64_t offset);
+bool btoep_range_contains(btoep_range range, uint64_t offset);
 
 /*
  * Checks whether range A is a superset of range B.
  *
  * If B is empty, this always returns true, regardless of the offset of B.
  */
-bool btoep_range_is_subset(const btoep_range* super, const btoep_range* sub);
+bool btoep_range_is_subset(btoep_range super, btoep_range sub);
 
 /*
  * For a range L and a range X, this calculates L minus X. This can produce two
  * distinct ranges.
  */
-void btoep_range_remove(btoep_range* left_in, btoep_range* right, const btoep_range* remove);
+void btoep_range_remove(btoep_range* left_in, btoep_range* right, btoep_range remove);
 
 #endif  // __BTOEP__RANGE_H__

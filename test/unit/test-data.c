@@ -3,11 +3,6 @@
 #include <btoep/dataset.h>
 #include <string.h>
 
-static inline btoep_range mkrange(uint64_t offset, uint64_t length) {
-  btoep_range range = { offset, length };
-  return range;
-}
-
 static inline bool memeqb(const uint8_t* ptr, uint8_t value, size_t n) {
   for (size_t i = 0; i < n; i++)
     if (ptr[i] != value) return false;
@@ -29,9 +24,9 @@ static void test_data(void) {
   assert(btoep_index_iterator_is_eof(&dataset));
 
   // Add some data.
-  range = mkrange(7168, 1024);
+  range = btoep_mkrange(7168, 1024);
   memset(buffer, 0xcc, range.length);
-  assert(btoep_data_add_range(&dataset, &range, buffer, BTOEP_CONFLICT_ERROR));
+  assert(btoep_data_add_range(&dataset, range, buffer, BTOEP_CONFLICT_ERROR));
 
   // The file should have been created with the proper size.
   assert(btoep_data_get_size(&dataset, &data_size));
@@ -45,9 +40,9 @@ static void test_data(void) {
   assert(btoep_index_iterator_is_eof(&dataset));
 
   // Add another range, and iterate again.
-  range = mkrange(1024, 512);
+  range = btoep_mkrange(1024, 512);
   memset(buffer, 0xff, range.length);
-  assert(btoep_data_add_range(&dataset, &range, buffer, BTOEP_CONFLICT_ERROR));
+  assert(btoep_data_add_range(&dataset, range, buffer, BTOEP_CONFLICT_ERROR));
   assert(btoep_index_iterator_start(&dataset));
   assert(!btoep_index_iterator_is_eof(&dataset));
   assert(btoep_index_iterator_next(&dataset, &range));
@@ -58,9 +53,9 @@ static void test_data(void) {
   assert(btoep_index_iterator_is_eof(&dataset));
 
   // Add another range inbetween the previous ones.
-  range = mkrange(1536, 5632);
+  range = btoep_mkrange(1536, 5632);
   memset(buffer, 0xdd, range.length);
-  assert(btoep_data_add_range(&dataset, &range, buffer, BTOEP_CONFLICT_ERROR));
+  assert(btoep_data_add_range(&dataset, range, buffer, BTOEP_CONFLICT_ERROR));
   assert(btoep_index_iterator_start(&dataset));
   assert(!btoep_index_iterator_is_eof(&dataset));
   assert(btoep_index_iterator_next(&dataset, &range));
@@ -82,9 +77,9 @@ static void test_data(void) {
   assert(data_size == 16384);
 
   // Add another range, and iterate again.
-  range = mkrange(9216, 1024);
+  range = btoep_mkrange(9216, 1024);
   memset(buffer, 0xaa, range.length);
-  assert(btoep_data_add_range(&dataset, &range, buffer, BTOEP_CONFLICT_ERROR));
+  assert(btoep_data_add_range(&dataset, range, buffer, BTOEP_CONFLICT_ERROR));
   assert(btoep_index_iterator_start(&dataset));
   assert(!btoep_index_iterator_is_eof(&dataset));
   assert(btoep_index_iterator_next(&dataset, &range));
@@ -118,9 +113,9 @@ static void test_data(void) {
   assert(btoep_index_iterator_is_eof(&dataset));
 
   // Adding an overlapping range with conflicting data should fail.
-  range = mkrange(1000, 3000);
+  range = btoep_mkrange(1000, 3000);
   memset(buffer, 0x01, range.length);
-  assert(!btoep_data_add_range(&dataset, &range, buffer, BTOEP_CONFLICT_ERROR));
+  assert(!btoep_data_add_range(&dataset, range, buffer, BTOEP_CONFLICT_ERROR));
   btoep_get_error(&dataset, &error, NULL);
   assert(error == B_ERR_DATA_CONFLICT);
 
@@ -143,50 +138,50 @@ static void test_data(void) {
   // 9216..9727 are set to 0xaa.
 
   // Existing ranges should contain correct data.
-  range = mkrange(1024, 7168);
+  range = btoep_mkrange(1024, 7168);
   size_t n_read = sizeof(buffer);
-  assert(btoep_data_read_range(&dataset, &range, buffer, &n_read));
+  assert(btoep_data_read_range(&dataset, range, buffer, &n_read));
   assert(n_read == range.length);
   assert(memeqb(buffer, 0xff, 512));
   assert(memeqb(buffer + 512, 0xdd, 5632));
   assert(memeqb(buffer + 6144, 0xcc, 1024));
-  range = mkrange(9216, 512);
+  range = btoep_mkrange(9216, 512);
   n_read = sizeof(buffer);
-  assert(btoep_data_read_range(&dataset, &range, buffer, &n_read));
+  assert(btoep_data_read_range(&dataset, range, buffer, &n_read));
   assert(n_read == range.length);
   assert(memeqb(buffer, 0xaa, 512));
 
   // Reading out of bounds should fail.
-  range = mkrange(0, 2048);
-  assert(!btoep_data_read_range(&dataset, &range, buffer, NULL));
+  range = btoep_mkrange(0, 2048);
+  assert(!btoep_data_read_range(&dataset, range, buffer, NULL));
   btoep_get_error(&dataset, &error, NULL);
   assert(error == B_ERR_READ_OUT_OF_BOUNDS);
 
   // Reading an empty range should succeed as long as the offset is within the
   // file.
-  range = mkrange(0, 0);
+  range = btoep_mkrange(0, 0);
   n_read = sizeof(buffer);
-  assert(btoep_data_read_range(&dataset, &range, buffer, &n_read));
+  assert(btoep_data_read_range(&dataset, range, buffer, &n_read));
   assert(n_read == 0);
-  range = mkrange(9728, 0);
+  range = btoep_mkrange(9728, 0);
   n_read = sizeof(buffer);
-  assert(btoep_data_read_range(&dataset, &range, buffer, &n_read));
+  assert(btoep_data_read_range(&dataset, range, buffer, &n_read));
   assert(n_read == 0);
 
   // But reading an empty range outside of the file should still fail.
-  range = mkrange(9729, 0);
-  assert(!btoep_data_read_range(&dataset, &range, buffer, NULL));
+  range = btoep_mkrange(9729, 0);
+  assert(!btoep_data_read_range(&dataset, range, buffer, NULL));
   btoep_get_error(&dataset, &error, NULL);
   assert(error == B_ERR_READ_OUT_OF_BOUNDS);
 
-    //    0..1023 do not exist.
+  //    0..1023 do not exist.
   // 1024..1535 are set to 0xff.
   // 1536..7167 are set to 0xdd.
   // 7168..8191 are set to 0xcc.
   // 9216..9727 are set to 0xaa.
 
   // Write a non-conflicting superset.
-  range = mkrange(0, 10240);
+  range = btoep_mkrange(0, 10240);
   memset(buffer, 0xee, 1024);
   memset(buffer + 1024, 0xff, 512);
   memset(buffer + 1536, 0xdd, 5632);
@@ -194,7 +189,7 @@ static void test_data(void) {
   memset(buffer + 8192, 0xbb, 1024);
   memset(buffer + 9216, 0xaa, 512);
   memset(buffer + 9728, 0x0f, 512);
-  assert(btoep_data_add_range(&dataset, &range, buffer, BTOEP_CONFLICT_ERROR));
+  assert(btoep_data_add_range(&dataset, range, buffer, BTOEP_CONFLICT_ERROR));
 
   // Make sure that the index was updated correctly.
   assert(btoep_index_iterator_start(&dataset));

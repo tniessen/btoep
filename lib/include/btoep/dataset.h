@@ -69,7 +69,7 @@ void btoep_get_error(btoep_dataset* dataset, int* code, const char** message);
 #define BTOEP_CONFLICT_KEEP_OLD  2
 #define BTOEP_CONFLICT_OVERWRITE 4
 
-bool btoep_data_add_range(btoep_dataset* dataset, const btoep_range* range, const void* data, int conflict_mode);
+bool btoep_data_add_range(btoep_dataset* dataset, btoep_range range, const void* data, int conflict_mode);
 
 bool btoep_data_write(btoep_dataset* dataset, uint64_t offset, const void* data, size_t length, int conflict_mode);
 
@@ -79,13 +79,13 @@ bool btoep_data_write(btoep_dataset* dataset, uint64_t offset, const void* data,
  * ranges.
  *
  * data_size may be NULL, in which case range->length is used. If it is not
- * NULL, this function only reads up to range->length bytes of the given range,
+ * NULL, this function only reads up to data_size bytes of the given range,
  * and then sets data_size to the number of bytes read.
  *
  * Unlike btoep_data_read, this function will attempt to read the entire range
  * (or however many bytes fit into the buffer based on data_size).
  */
-bool btoep_data_read_range(btoep_dataset* dataset, const btoep_range* range, void* data, size_t* data_size);
+bool btoep_data_read_range(btoep_dataset* dataset, btoep_range range, void* data, size_t* data_size);
 
 /*
  * This function is similar to the read() function. It attempts to read up to
@@ -120,13 +120,13 @@ bool btoep_index_iterator_skip(btoep_dataset* dataset);
 
 bool btoep_index_iterator_is_eof(btoep_dataset* dataset);
 
-bool btoep_index_add(btoep_dataset* dataset, const btoep_range* range);
+bool btoep_index_add(btoep_dataset* dataset, btoep_range range);
 
-bool btoep_index_remove(btoep_dataset* dataset, const btoep_range* range);
+bool btoep_index_remove(btoep_dataset* dataset, btoep_range range);
 
-bool btoep_index_contains(btoep_dataset* dataset, const btoep_range* relevant_range, bool* contains);
+bool btoep_index_contains(btoep_dataset* dataset, btoep_range relevant_range, bool* contains);
 
-bool btoep_index_contains_any(btoep_dataset* dataset, const btoep_range* relevant_range, bool* contains_any);
+bool btoep_index_contains_any(btoep_dataset* dataset, btoep_range relevant_range, bool* contains_any);
 
 bool btoep_index_flush(btoep_dataset* dataset);
 

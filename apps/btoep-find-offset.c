@@ -30,12 +30,12 @@ bool opt_accept_stop_at(void* out, const char* value) {
 }
 
 bool maybe_result(uint64_t offset, bool looking_for_data,
-                  const btoep_range* range, uint64_t* result) {
-  if (range->offset > offset) {
-    *result = looking_for_data ? range->offset : offset;
+                  btoep_range range, uint64_t* result) {
+  if (range.offset > offset) {
+    *result = looking_for_data ? range.offset : offset;
     return true;
   } else if (btoep_range_contains(range, offset)) {
-    *result = looking_for_data ? offset : range->offset + range->length;
+    *result = looking_for_data ? offset : range.offset + range.length;
     return true;
   } else {
     return false;
@@ -48,12 +48,12 @@ bool find_offset(btoep_dataset* dataset, const cmd_opts* opts,
     return false;
 
   uint64_t offset = opts->start_at_offset.value;
-  btoep_range range = { 0, 0 };
+  btoep_range range;
 
   while (!btoep_index_iterator_is_eof(dataset)) {
     if (!btoep_index_iterator_next(dataset, &range))
       return false;
-    if (maybe_result(offset, opts->stop_at_data, &range, result)) {
+    if (maybe_result(offset, opts->stop_at_data, range, result)) {
       *exists = true;
       return true;
     }
