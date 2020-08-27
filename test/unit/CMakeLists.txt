@@ -16,5 +16,7 @@ foreach(file ${unit_tests})
   add_test(NAME "unit:${fname}"
            WORKING_DIRECTORY "${unit_test_tmp_dir}"
            COMMAND $<TARGET_FILE:${fname}>)
-  set_tests_properties("unit:${fname}" PROPERTIES FIXTURES_REQUIRED UnitTest)
+  set_tests_properties("unit:${fname}" PROPERTIES
+                       FIXTURES_REQUIRED UnitTest
+                       TIMEOUT 20)
 endforeach()
