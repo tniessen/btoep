@@ -18,9 +18,6 @@ jobs:
           - Debug
           - MinSizeRel
           - RelWithDebInfo
-        linktype:
-          - static
-          - dynamic
     steps:
       - uses: actions/checkout@master
       - uses: actions/setup-python@v2
@@ -30,7 +27,7 @@ jobs:
         run: cmake -E make_directory ${{runner.workspace}}/build
       - name: Configure CMake
         working-directory: ${{runner.workspace}}/build
-        run: cmake ${{github.workspace}} -DCMAKE_BUILD_TYPE=${{matrix.buildtype}} -DBUILD_SHARED_LIBS=${{fromJson('{"static":"OFF","dynamic":"ON"}')[matrix.linktype]}}
+        run: cmake ${{github.workspace}} -DCMAKE_BUILD_TYPE=${{matrix.buildtype}}
       - name: Build
         working-directory: ${{runner.workspace}}/build
         run: cmake --build . --config ${{matrix.buildtype}}

@@ -5,8 +5,6 @@ project(btoep)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED True)
 
-option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
-
 if(MSVC)
   add_compile_options(/W4 /WX)
 else()
