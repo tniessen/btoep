@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
   cmd_opts opts = {
     .missing = false
   };
-  if (!opt_parse(options, 4, &opts, argc - 1, argv + 1)) {
+  if (!opt_parse(options, 4, &opts, (size_t) argc - 1, argv + 1)) {
     fprintf(stderr, "error\n");
     return B_EXIT_CODE_USAGE_ERROR;
   }

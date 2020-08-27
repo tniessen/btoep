@@ -89,10 +89,10 @@ bool opt_accept_uint64_once(void* out, const char* value) {
   return *endptr == 0;
 }
 
-bool opt_accept_bool_flag_once(void* out,
-                               __attribute__((unused)) const char* value) {
+bool opt_accept_bool_flag_once(void* out, const char* value) {
+  (void) value;
   bool* b = out;
-  return !*b && (*b = true);
+  return (!*b) && (*b = true);
 }
 
 opt_def _dataset_path_opt_defs[3] = {

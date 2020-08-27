@@ -1,9 +1,20 @@
 set(unit_test_tmp_dir "${CMAKE_CURRENT_BINARY_DIR}/tmp")
 
-add_test(NAME UnitTestSetup COMMAND mkdir "${unit_test_tmp_dir}")
+if(MSVC)
+  add_test(NAME UnitTestSetup COMMAND powershell -Command mkdir "${unit_test_tmp_dir}")
+  add_test(NAME UnitTestCleanup COMMAND powershell -Command rmdir -recurse "${unit_test_tmp_dir}")
+else()
+  add_test(NAME UnitTestSetup COMMAND mkdir "${unit_test_tmp_dir}")
+  add_test(NAME UnitTestCleanup COMMAND rm -rf "${unit_test_tmp_dir}")
+endif()
 set_tests_properties(UnitTestSetup PROPERTIES FIXTURES_SETUP UnitTest)
-add_test(NAME UnitTestCleanup COMMAND rm -rf "${unit_test_tmp_dir}")
 set_tests_properties(UnitTestCleanup PROPERTIES FIXTURES_CLEANUP UnitTest)
+
+# MSVC would complain about the stack size in tests, since we allocate datasets
+# on the stack. We know that we won't exceed the ~1MiB stack size limit.
+if(MSVC)
+  add_compile_options(/wd6262)
+endif()
 
 add_compile_options(-UNDEBUG)  # Necessary for tests to work in release builds
 

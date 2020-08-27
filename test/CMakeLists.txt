@@ -9,7 +9,7 @@ if(Python3_FOUND)
       add_test(NAME "system:${fname}"
                COMMAND ${Python3_EXECUTABLE} ${file})
       set_tests_properties("system:${fname}" PROPERTIES
-                           ENVIRONMENT "PATH=${CMAKE_BINARY_DIR}/apps"
+                           ENVIRONMENT "PATH=$<TARGET_FILE_DIR:btoep-add>"
                            TIMEOUT 60)
     endforeach()
   else()

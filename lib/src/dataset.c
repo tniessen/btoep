@@ -1,20 +1,33 @@
 #include <assert.h>
-#include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include <unistd.h>
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 
 #include "../include/btoep/dataset.h"
 
+#ifdef _MSC_VER
+# define INVALID_FILE_FD INVALID_HANDLE_VALUE
+#else
+# include <errno.h>
+# include <sys/types.h>
+# include <sys/stat.h>
+# include <fcntl.h>
+# include <unistd.h>
+# define INVALID_FILE_FD -1
+#endif
+
 static bool set_error(btoep_dataset* dataset, int error, bool system_error) {
   dataset->last_error = error;
-  dataset->last_system_error = system_error ? errno : 0;
+  if (system_error) {
+#ifdef _MSC_VER
+    dataset->last_system_error = GetLastError();
+#else
+    dataset->last_system_error = errno;
+#endif
+  } else {
+    dataset->last_system_error = 0;
+  }
   return false;
 }
 
@@ -22,33 +35,107 @@ static inline bool set_io_error(btoep_dataset* dataset) {
   return set_error(dataset, B_ERR_IO, true);
 }
 
-static bool fd_seek(btoep_dataset* dataset, int fd, off_t offset, int whence, uint64_t* out) {
-  offset = lseek(fd, offset, whence);
-  if (offset == (off_t) -1)
+static bool fd_open(btoep_dataset* dataset, btoep_fd* fd, btoep_path path) {
+#ifdef _MSC_VER
+  *fd = CreateFile(path, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+#else
+  *fd = open(path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+#endif
+  if (*fd == INVALID_FILE_FD)
     return set_io_error(dataset);
-  if (out != NULL)
-    *out = offset;
   return true;
 }
 
-static bool fd_read(btoep_dataset* dataset, int fd, void* out, size_t* n_read) {
+static bool fd_seek(btoep_dataset* dataset, btoep_fd fd, uint64_t offset, int whence, uint64_t* out) {
+#ifdef _MSC_VER
+  // TODO: Prevent overflow since QuadPart is signed (but only if whence != FILE_BEGIN)
+  LARGE_INTEGER liDistanceToMove = { .QuadPart = offset };
+  LARGE_INTEGER liNewFilePointer;
+  if (!SetFilePointerEx(fd, liDistanceToMove, &liNewFilePointer, whence))
+    return set_io_error(dataset);
+  if (out != NULL)
+    *out = liNewFilePointer.QuadPart; // TODO: What about signedness?
+#else
+  off_t ret = lseek(fd, offset, whence);
+  if (ret == -1)
+    return set_io_error(dataset);
+  if (out != NULL)
+    *out = ret;
+#endif
+  return true;
+}
+
+static bool fd_truncate(btoep_dataset* dataset, btoep_fd fd, uint64_t size) {
+#ifdef _MSC_VER
+  // Windows doesn't have an equivalent to ftruncate. We need to remember the
+  // current position within the file, change it to the desired end position,
+  // set the file length to the file pointer, and then restore the previous file
+  // pointer.
+  LARGE_INTEGER prevPosition = { .QuadPart = 0 };
+  if (!SetFilePointerEx(fd, prevPosition, &prevPosition, FILE_CURRENT))
+    return false;
+  LARGE_INTEGER newPosition = { .QuadPart = size }; // TODO: Signedness
+  if (!SetFilePointerEx(fd, newPosition, NULL, FILE_BEGIN))
+    return set_io_error(dataset);
+  if (!SetEndOfFile(fd))
+    return set_io_error(dataset);
+  if (!SetFilePointerEx(fd, prevPosition, NULL, FILE_BEGIN))
+    return set_io_error(dataset);
+#else
+  if (ftruncate(fd, size) != 0)
+    return set_io_error(dataset);
+#endif
+  return true;
+}
+
+#ifdef _MSC_VER
+static inline DWORD limit_dword(size_t sz) {
+  return (sz < MAXDWORD) ? (DWORD) sz : MAXDWORD;
+}
+#endif
+
+static bool fd_read(btoep_dataset* dataset, btoep_fd fd, void* out, size_t* n_read) {
+#ifdef _MSC_VER
+  DWORD count = limit_dword(*n_read);
+  if (!ReadFile(fd, out, count, &count, NULL))
+    return set_io_error(dataset);
+  *n_read = count;
+#else
   ssize_t ret = read(fd, out, *n_read);
   if (ret == -1)
     return set_io_error(dataset);
   *n_read = ret;
+#endif
   return true;
 }
 
-static bool fd_write(btoep_dataset* dataset, int fd, const void* data, size_t length) {
+static bool fd_write(btoep_dataset* dataset, btoep_fd fd, const void* data, size_t length) {
   const uint8_t* bytes = data;
   while (length > 0) {
+#ifdef _MSC_VER
+    DWORD written;
+    if (!WriteFile(fd, data, limit_dword(length), &written, NULL))
+      return set_io_error(dataset);
+#else
     ssize_t written = write(fd, bytes, length);
     if (written == -1)
       return set_io_error(dataset);
     assert(written >= 0 && (size_t) written <= length);
+#endif
     bytes += written;
     length -= written;
   }
+  return true;
+}
+
+static bool fd_close(btoep_dataset* dataset, btoep_fd fd) {
+#ifdef _MSC_VER
+  if (!CloseHandle(fd))
+    return set_io_error(dataset);
+#else
+  if (close(fd) != 0)
+    return set_io_error(dataset);
+#endif
   return true;
 }
 
@@ -63,6 +150,15 @@ static bool copy_path(char* out, const char* in, const char* def, const char* ex
 }
 
 static bool btoep_lock(btoep_dataset* dataset) {
+#ifdef _MSC_VER
+  HANDLE hFile = CreateFile(dataset->lock_path, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+  if (hFile == INVALID_HANDLE_VALUE) {
+    if (GetLastError() == ERROR_FILE_EXISTS)
+      return set_error(dataset, B_ERR_DATASET_LOCKED, false);
+    return set_io_error(dataset);
+  }
+  CloseHandle(hFile); // TODO: Check return value
+#else
   int fd = open(dataset->lock_path, O_CREAT | O_EXCL | O_WRONLY, 0000);
   if (fd == -1) {
     if (errno == EEXIST)
@@ -70,15 +166,20 @@ static bool btoep_lock(btoep_dataset* dataset) {
     return set_io_error(dataset);
   }
   close(fd); // TODO: Check return value
+#endif
   return true;
 }
 
 static bool btoep_unlock(btoep_dataset* dataset) {
+#ifdef _MSC_VER
+  return DeleteFile(dataset->lock_path) || set_io_error(dataset);
+#else
   return unlink(dataset->lock_path) == 0 || set_io_error(dataset);
+#endif
 }
 
 // TODO: Allow read-only open
-bool btoep_open(btoep_dataset* dataset, const char* data_path, const char* index_path, const char* lock_path) {
+bool btoep_open(btoep_dataset* dataset, btoep_path data_path, btoep_path index_path, btoep_path lock_path) {
   strcpy(dataset->data_path, data_path);
   copy_path(dataset->index_path, index_path, data_path, ".idx");
   copy_path(dataset->lock_path, lock_path, data_path, ".lck");
@@ -86,16 +187,15 @@ bool btoep_open(btoep_dataset* dataset, const char* data_path, const char* index
   if (!btoep_lock(dataset))
     return false;
 
-  dataset->data_fd = open(data_path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
-  if (dataset->data_fd == -1) {
+  if (!fd_open(dataset, &dataset->data_fd, data_path)) {
     btoep_unlock(dataset); // TODO: Return value
     return false;
   }
-  dataset->index_fd = open(dataset->index_path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
-  if (dataset->index_fd == -1) {
-    close(dataset->data_fd); // TODO: Return value
+
+  if (!fd_open(dataset, &dataset->index_fd, dataset->index_path)) {
+    fd_close(dataset, dataset->data_fd); // TODO: Return value
     btoep_unlock(dataset); // TODO: Return value
-    return set_io_error(dataset);
+    return false;
   }
 
   // Determine the index size.
@@ -116,8 +216,8 @@ bool btoep_close(btoep_dataset* dataset) {
     return false;
 
   // TODO: Return values
-  close(dataset->data_fd);
-  close(dataset->index_fd);
+  fd_close(dataset, dataset->data_fd);
+  fd_close(dataset, dataset->index_fd);
   btoep_unlock(dataset);
   return true;
 }
@@ -193,8 +293,10 @@ bool btoep_data_write(btoep_dataset* dataset, uint64_t offset, const void* data,
         assert(offset == fd_offset);
       } else if (conflict_mode == BTOEP_CONFLICT_ERROR) {
         // Ensure the data is the same.
-        uint8_t buf[64 * 1024];
-        ssize_t n_read = read(dataset->data_fd, buf, entry.length); // TODO: Error handling, loop etc.
+        uint8_t buf[8 * 1024];
+        size_t n_read = entry.length; // TODO: Loop etc.
+        if (!fd_read(dataset, dataset->data_fd, buf, &n_read))
+          return false;
         if (memcmp(buf, data, n_read) != 0)
           return set_error(dataset, B_ERR_DATA_CONFLICT, false);
         offset += entry.length;
@@ -254,7 +356,7 @@ bool btoep_data_get_size(btoep_dataset* dataset, uint64_t* size) {
   return fd_seek(dataset, dataset->data_fd, 0, SEEK_END, size);
 }
 
-static uint64_t max_u64 = -1;
+static uint64_t max_u64 = (uint64_t) -1;
 
 bool btoep_data_set_size(btoep_dataset* dataset, uint64_t size, bool allow_destructive) {
   btoep_range relevant_range = { size, max_u64 - size };
@@ -272,7 +374,7 @@ bool btoep_data_set_size(btoep_dataset* dataset, uint64_t size, bool allow_destr
       return set_error(dataset, B_ERR_DESTRUCTIVE_ACTION, false);
   }
 
-  return ftruncate(dataset->data_fd, size) == 0;
+  return fd_truncate(dataset, dataset->data_fd, size);
 }
 
 static void btoep_index_cache_mark_dirty(btoep_dataset* dataset, btoep_range range) {
@@ -381,7 +483,7 @@ static inline bool btoep_index_uleb128(btoep_dataset* dataset, uint64_t* where, 
     if (*where >= dataset->index_cache_range.offset + dataset->index_cache_range.length)
       return set_error(dataset, B_ERR_INVALID_INDEX_FORMAT, false);
     byte = dataset->index_cache[(*where)++ - dataset->index_cache_range.offset];
-    *result |= (byte & 0x7f) << exponent;
+    *result |= (uint64_t) (byte & 0x7f) << exponent;
     if (byte & 0x80) {
       exponent += 7;
       if (exponent >= 56)
@@ -683,8 +785,8 @@ bool btoep_index_flush(btoep_dataset* dataset) {
     return false;
 
   if (dataset->total_index_size_on_disk != dataset->total_index_size) {
-    if (ftruncate(dataset->index_fd, dataset->total_index_size) != 0)
-      return set_io_error(dataset);
+    if (!fd_truncate(dataset, dataset->index_fd, dataset->total_index_size))
+      return false;
     dataset->total_index_size_on_disk = dataset->total_index_size;
   }
 

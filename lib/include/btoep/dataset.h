@@ -3,10 +3,16 @@
 
 #include <stddef.h>
 
-#ifdef __linux__
-# include <linux/limits.h>
+#ifdef _MSC_VER
+# define WIN32_LEAN_AND_MEAN
+# include <windows.h>
+# include <tchar.h>
 #else
-# include <limits.h>
+# ifdef __linux__
+#  include <linux/limits.h>
+# else
+#  include <limits.h>
+# endif
 #endif
 
 #include "range.h"
@@ -20,19 +26,33 @@
 #define B_ERR_DATA_CONFLICT        5
 #define B_ERR_READ_OUT_OF_BOUNDS   6
 
+#ifdef _MSC_VER
+typedef LPCTSTR btoep_path;
+typedef TCHAR btoep_path_buffer[MAX_PATH];
+typedef HANDLE btoep_fd;
+#else
+typedef const char* btoep_path;
+typedef char btoep_path_buffer[PATH_MAX];
+typedef int btoep_fd;
+#endif
+
 typedef struct {
   // Configurable paths.
-  char data_path[PATH_MAX];
-  char index_path[PATH_MAX];
-  char lock_path[PATH_MAX];
+  btoep_path_buffer data_path;
+  btoep_path_buffer index_path;
+  btoep_path_buffer lock_path;
 
   // File descriptors.
-  int data_fd;
-  int index_fd;
+  btoep_fd data_fd;
+  btoep_fd index_fd;
 
   // Error information.
   int last_error;
+#ifdef _MSC_VER
+  DWORD last_system_error;
+#else
   int last_system_error;
+#endif
 
   // Index file size and fd position within the index file.
   uint64_t current_index_offset;
@@ -55,7 +75,7 @@ typedef struct {
  */
 
 // TODO: Allow read-only open
-bool btoep_open(btoep_dataset* dataset, const char* data_path, const char* index_path, const char* lock_path);
+bool btoep_open(btoep_dataset* dataset, btoep_path data_path, btoep_path index_path, btoep_path lock_path);
 
 bool btoep_close(btoep_dataset* dataset);
 
