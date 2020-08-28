@@ -51,12 +51,14 @@ int main(int argc, char** argv) {
     return B_EXIT_CODE_APP_ERROR;
   }
 
-  if (!btoep_data_set_size(&dataset, opts.size.value, opts.force)) {
-    perror("set_size");
-  }
+  bool success = btoep_data_set_size(&dataset, opts.size.value, opts.force);
 
-  if (!btoep_close(&dataset)) {
-    perror("btoep_close");
+  // The order is important here. Even if the previous call failed, the dataset
+  // should still be closed.
+  success = btoep_close(&dataset) && success;
+
+  if (!success) {
+    print_error(&dataset);
     return B_EXIT_CODE_APP_ERROR;
   }
 
