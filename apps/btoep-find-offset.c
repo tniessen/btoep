@@ -8,42 +8,20 @@
 
 typedef struct {
   dataset_path_opts paths;
-  maybe_uint64 start_at_offset;
-  bool has_mode;
-  int mode;
+  optional_uint64 start_at_offset;
+  optional_int mode;
 } cmd_opts;
 
-// TODO: Make this prettier with less returns
-bool opt_accept_mode(void* out, const char* value) {
-  cmd_opts* result = out;
-  if (result->has_mode)
-    return false;
-  if (strcmp(value, "data") == 0) {
-    result->has_mode = true;
-    result->mode = BTOEP_FIND_DATA;
-  } else if (strcmp(value, "no-data") == 0) {
-    result->has_mode = true;
-    result->mode = BTOEP_FIND_NO_DATA;
-  } else {
-    return false;
-  }
+#define MODE_ENUM(CASE)                                                        \
+  CASE("data",    BTOEP_FIND_DATA)                                             \
+  CASE("no-data", BTOEP_FIND_NO_DATA)                                          \
 
-  return true;
-}
+static bool OPT_ACCEPT_ENUM_ONCE(mode, optional_int, MODE_ENUM)
 
 int main(int argc, char** argv) {
   opt_def options[5] = {
-    {
-      .name = "--start-at",
-      .has_value = true,
-      .accept = opt_accept_uint64_once,
-      .out_offset = offsetof(cmd_opts, start_at_offset)
-    },
-    {
-      .name = "--stop-at",
-      .has_value = true,
-      .accept = opt_accept_mode
-    }
+    UINT64_OPTION("--start-at", start_at_offset),
+    CUSTOM_OPTION("--stop-at", opt_accept_mode)
   };
 
   opt_add_nested(options + 2, dataset_path_opt_defs, 3, offsetof(cmd_opts, paths));
@@ -63,7 +41,7 @@ int main(int argc, char** argv) {
     return B_EXIT_CODE_USAGE_ERROR;
   }
 
-  if (!opts.has_mode) {
+  if (!opts.mode.set_by_user) {
     fprintf(stderr, "--stop-at is required\n");
     return B_EXIT_CODE_USAGE_ERROR;
   }
@@ -78,7 +56,7 @@ int main(int argc, char** argv) {
   bool exists;
   uint64_t result;
   bool success = btoep_index_find_offset(&dataset, opts.start_at_offset.value,
-                                         opts.mode, &exists, &result);
+                                         opts.mode.value, &exists, &result);
 
   // The order is important here. Even if the previous call failed, the dataset
   // should still be closed.

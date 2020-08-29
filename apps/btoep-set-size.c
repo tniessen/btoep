@@ -7,22 +7,13 @@
 typedef struct {
   dataset_path_opts paths;
   bool force;
-  maybe_uint64 size;
+  optional_uint64 size;
 } cmd_opts;
 
 int main(int argc, char** argv) {
   opt_def options[5] = {
-    {
-      .name = "--force",
-      .accept = opt_accept_bool_flag_once,
-      .out_offset = offsetof(cmd_opts, force)
-    },
-    {
-      .name = "--size",
-      .has_value = true,
-      .accept = opt_accept_uint64_once,
-      .out_offset = offsetof(cmd_opts, size)
-    }
+    BOOL_FLAG("--force", force),
+    UINT64_OPTION("--size", size)
   };
 
   opt_add_nested(options + 2, dataset_path_opt_defs, 3, offsetof(cmd_opts, paths));
@@ -40,7 +31,7 @@ int main(int argc, char** argv) {
     return B_EXIT_CODE_USAGE_ERROR;
   }
 
-  if (!opts.size.exists) {
+  if (!opts.size.set_by_user) {
     fprintf(stderr, "need size\n");
     return B_EXIT_CODE_USAGE_ERROR;
   }

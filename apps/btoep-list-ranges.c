@@ -62,45 +62,34 @@ static bool list_missing_ranges(btoep_dataset* dataset, print_range_fn print_ran
   return true;
 }
 
+typedef OPTIONAL_VALUE(print_range_fn) optional_print_range_fn;
+
 typedef struct {
   dataset_path_opts paths;
-  print_range_fn range_format;
+  optional_print_range_fn range_format;
   bool missing;
 } cmd_opts;
 
-static bool opt_accept_range_format(void* out, const char* value) {
-  cmd_opts* result = out;
-  if (result->range_format != NULL)
-    return false;
-  if (strcmp(value, "exclusive") == 0) {
-    result->range_format = print_range_excl;
-  } else if (strcmp(value, "inclusive") == 0) {
-    result->range_format = print_range_incl;
-  } else {
-    return false;
-  }
+#define RANGE_FORMAT_ENUM(CASE)                                                \
+  CASE("exclusive", print_range_excl)                                          \
+  CASE("inclusive", print_range_incl)                                          \
 
-  return true;
-}
+static bool OPT_ACCEPT_ENUM_ONCE(range_format, optional_print_range_fn,
+                                 RANGE_FORMAT_ENUM)
 
 int main(int argc, char** argv) {
   opt_def options[5] = {
-    {
-      .name = "--range-format",
-      .accept = opt_accept_range_format
-    },
-    {
-      .name = "--missing",
-      .accept = opt_accept_bool_flag_once,
-      .out_offset = offsetof(cmd_opts, missing)
-    }
+    CUSTOM_OPTION("--range-format", opt_accept_range_format),
+    BOOL_FLAG("--missing", missing)
   };
 
   opt_add_nested(options + 2, dataset_path_opt_defs, 3, offsetof(cmd_opts, paths));
 
   cmd_opts opts = {
     .missing = false,
-    .range_format = NULL
+    .range_format = {
+      .value = print_range_incl
+    }
   };
   if (!opt_parse(options, 5, &opts, (size_t) argc - 1, argv + 1)) {
     fprintf(stderr, "error\n");
@@ -119,12 +108,9 @@ int main(int argc, char** argv) {
   }
 
   list_fn list_ranges = opts.missing ? list_missing_ranges : list_data_ranges;
-  print_range_fn print_range = opts.range_format;
-  if (print_range == NULL)
-    print_range = print_range_incl;
 
   if (!btoep_index_iterator_start(&dataset) ||
-      !list_ranges(&dataset, print_range)) {
+      !list_ranges(&dataset, opts.range_format.value)) {
     const char* message;
     btoep_get_error(&dataset, NULL, &message);
     fprintf(stderr, "Error: %s\n", message);

@@ -80,12 +80,12 @@ bool opt_accept_string_once(void* out, const char* value) {
 }
 
 bool opt_accept_uint64_once(void* out, const char* value) {
-  maybe_uint64* result = out;
-  if (result->exists)
+  optional_uint64* result = out;
+  if (result->set_by_user)
     return false;
   char* endptr;
   result->value = strtoull(value, &endptr, 10);
-  result->exists = true;
+  result->set_by_user = true;
   return *endptr == 0;
 }
 
@@ -96,24 +96,9 @@ bool opt_accept_bool_flag_once(void* out, const char* value) {
 }
 
 opt_def _dataset_path_opt_defs[3] = {
-  {
-    .name = "--dataset",
-    .has_value = true,
-    .accept = opt_accept_string_once,
-    .out_offset = offsetof(dataset_path_opts, data_path)
-  },
-  {
-    .name = "--index-path",
-    .has_value = true,
-    .accept = opt_accept_string_once,
-    .out_offset = offsetof(dataset_path_opts, index_path)
-  },
-  {
-    .name = "--lock-path",
-    .has_value = true,
-    .accept = opt_accept_string_once,
-    .out_offset = offsetof(dataset_path_opts, lock_path)
-  }
+  __STRING_OPTION(dataset_path_opts, "--dataset", data_path),
+  __STRING_OPTION(dataset_path_opts, "--index-path", index_path),
+  __STRING_OPTION(dataset_path_opts, "--lockfile-path", lock_path)
 };
 
 const opt_def* dataset_path_opt_defs = _dataset_path_opt_defs;

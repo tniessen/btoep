@@ -9,61 +9,32 @@
 typedef struct {
   dataset_path_opts paths;
   const char* source_path;
-  bool has_on_conflict;
-  int on_conflict;
-  maybe_uint64 offset;
-  maybe_uint64 enforce_length;
+  optional_int on_conflict;
+  optional_uint64 offset;
+  optional_uint64 enforce_length;
 } cmd_opts;
 
-// TODO: Make this prettier with less returns
-bool opt_accept_on_conflict(void* out, const char* value) {
-  cmd_opts* result = out;
-  if (result->has_on_conflict)
-    return false;
-  if (strcmp(value, "error") == 0) {
-    result->on_conflict = BTOEP_CONFLICT_ERROR;
-  } else if (strcmp(value, "keep") == 0) {
-    result->on_conflict = BTOEP_CONFLICT_KEEP_OLD;
-  } else if (strcmp(value, "overwrite") == 0) {
-    result->on_conflict = BTOEP_CONFLICT_OVERWRITE;
-  } else {
-    return false;
-  }
+#define ON_CONFLICT_ENUM(CASE)                                                 \
+  CASE("error",     BTOEP_CONFLICT_ERROR)                                      \
+  CASE("keep",      BTOEP_CONFLICT_KEEP_OLD)                                   \
+  CASE("overwrite", BTOEP_CONFLICT_OVERWRITE)                                  \
 
-  return true;
-}
+static bool OPT_ACCEPT_ENUM_ONCE(on_conflict, optional_int, ON_CONFLICT_ENUM)
 
 int main(int argc, char** argv) {
   opt_def options[7] = {
-    {
-      .name = "--on-conflict",
-      .has_value = true,
-      .accept = opt_accept_on_conflict
-    },
-    {
-      .name = "--offset",
-      .has_value = true,
-      .accept = opt_accept_uint64_once,
-      .out_offset = offsetof(cmd_opts, offset)
-    },
-    {
-      .name = "--enforce-length",
-      .has_value = true,
-      .accept = opt_accept_uint64_once,
-      .out_offset = offsetof(cmd_opts, enforce_length)
-    },
-    {
-      .name = "--source",
-      .has_value = true,
-      .accept = opt_accept_string_once,
-      .out_offset = offsetof(cmd_opts, source_path)
-    }
+    CUSTOM_OPTION("--on-conflict", opt_accept_on_conflict),
+    UINT64_OPTION("--offset", offset),
+    UINT64_OPTION("--enforce-length", enforce_length),
+    STRING_OPTION("--source", source_path)
   };
 
   opt_add_nested(options + 4, dataset_path_opt_defs, 3, offsetof(cmd_opts, paths));
 
   cmd_opts opts = {
-    .on_conflict = BTOEP_CONFLICT_ERROR
+    .on_conflict = {
+      .value = BTOEP_CONFLICT_ERROR
+    }
   };
   if (!opt_parse(options, 7, &opts, (size_t) argc - 1, argv + 1)) {
     fprintf(stderr, "error\n");
@@ -75,7 +46,7 @@ int main(int argc, char** argv) {
     return B_EXIT_CODE_USAGE_ERROR;
   }
 
-  if (!opts.offset.exists) {
+  if (!opts.offset.set_by_user) {
     fprintf(stderr, "need offset\n");
     return B_EXIT_CODE_USAGE_ERROR;
   }
@@ -111,7 +82,7 @@ int main(int argc, char** argv) {
 
     // We intentionally do not use btoep_data_add_range here to avoid modifying
     // the index until all data has been written successfully.
-    if (!btoep_data_write(&dataset, offset + length, buffer, n_read, opts.on_conflict)) {
+    if (!btoep_data_write(&dataset, offset + length, buffer, n_read, opts.on_conflict.value)) {
       // TODO
       const char* message;
       btoep_get_error(&dataset, NULL, &message);

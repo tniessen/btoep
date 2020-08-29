@@ -12,24 +12,14 @@
 
 typedef struct {
   dataset_path_opts paths;
-  maybe_uint64 offset;
-  maybe_uint64 length;
+  optional_uint64 offset;
+  optional_uint64 length;
 } cmd_opts;
 
 int main(int argc, char** argv) {
   opt_def options[5] = {
-    {
-      .name = "--offset",
-      .has_value = true,
-      .accept = opt_accept_uint64_once,
-      .out_offset = offsetof(cmd_opts, offset)
-    },
-    {
-      .name = "--length",
-      .has_value = true,
-      .accept = opt_accept_uint64_once,
-      .out_offset = offsetof(cmd_opts, length)
-    }
+    UINT64_OPTION("--offset", offset),
+    UINT64_OPTION("--length", length)
   };
 
   opt_add_nested(options + 2, dataset_path_opt_defs, 3, offsetof(cmd_opts, paths));
@@ -57,7 +47,7 @@ int main(int argc, char** argv) {
 
   bool success = true;
   btoep_range range;
-  if (opts.length.exists) {
+  if (opts.length.set_by_user) {
     range = btoep_mkrange(opts.offset.value, opts.length.value);
   } else {
     bool exists;
