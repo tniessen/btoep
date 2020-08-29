@@ -1,9 +1,7 @@
-add_subdirectory(unit)
-
 find_package(Python3)
 if(Python3_FOUND)
   if(Python3_VERSION VERSION_GREATER_EQUAL "3.7")
-    file(GLOB system_tests "system/test-*.py")
+    file(GLOB system_tests "test-*.py")
     foreach(file ${system_tests})
       get_filename_component(fname ${file} NAME_WE)
       add_test(NAME "system:${fname}"

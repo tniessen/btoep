@@ -17,4 +17,5 @@ add_subdirectory(apps)
 
 enable_testing()
 list(APPEND CMAKE_CTEST_ARGUMENTS "--output-on-failure")
-add_subdirectory(test)
+add_subdirectory(test/unit)
+add_subdirectory(test/system)
