@@ -3,10 +3,12 @@ import unittest
 
 class ListRangesTest(SystemTest):
 
-  def cmdListRanges(self, dataset, missing = False):
+  def cmdListRanges(self, dataset, missing = False, format = None):
     args = ['btoep-list-ranges', '--dataset', dataset]
     if missing:
       args.append('--missing')
+    if format is not None:
+      args.append('--range-format=' + format)
     result = self.cmd(*args, text=True)
     self.assertEqual(result.stderr, '')
     return result.stdout
@@ -32,6 +34,12 @@ class ListRangesTest(SystemTest):
     self.assertEqual(ranges, '0..0\n')
     ranges = self.cmdListRanges(dataset, True)
     self.assertEqual(ranges, '1..524287\n')
+
+    # Test the same dataset again, but using a different format
+    ranges = self.cmdListRanges(dataset, format='exclusive')
+    self.assertEqual(ranges, '0...1\n')
+    ranges = self.cmdListRanges(dataset, missing=True, format='exclusive')
+    self.assertEqual(ranges, '1...524288\n')
 
     # Test a 512 KiB dataset with another non-empty index
     dataset = self.createDataset(b'\x00' * 1024 * 512, b'\x81\x01\x7f\x00\x7f')
