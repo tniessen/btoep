@@ -333,8 +333,7 @@ bool btoep_data_read_range(btoep_dataset* dataset, btoep_range range, void* data
     if (!btoep_data_read(dataset, range.offset, data, &n_read))
       return false;
     assert(n_read != 0);
-    range.offset += n_read;
-    range.length -= n_read;
+    range = btoep_range_remove_left(range, n_read);
     data = ((uint8_t*) data) + n_read;
   }
 

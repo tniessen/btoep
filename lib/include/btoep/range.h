@@ -76,4 +76,10 @@ bool btoep_range_is_subset(btoep_range super, btoep_range sub);
  */
 void btoep_range_remove(btoep_range* left_in, btoep_range* right, btoep_range remove);
 
+/*
+ * Removes the left n values from a given range. If the length of the range is
+ * less than n, the behavior is undefined.
+ */
+btoep_range btoep_range_remove_left(btoep_range in, uint64_t n);
+
 #endif  // __BTOEP__RANGE_H__

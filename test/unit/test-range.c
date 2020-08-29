@@ -263,6 +263,19 @@ static void test_remove(void) {
   assert(right.offset == 30 && right.length == 0);
 }
 
+static void test_remove_left(void) {
+  btoep_range a;
+
+  a = btoep_range_remove_left(btoep_mkrange(20, 10), 0);
+  assert(a.offset == 20 && a.length == 10);
+
+  a = btoep_range_remove_left(btoep_mkrange(20, 10), 5);
+  assert(a.offset == 25 && a.length == 5);
+
+  a = btoep_range_remove_left(btoep_mkrange(20, 10), 10);
+  assert(a.offset == 30 && a.length == 0);
+}
+
 static void test_range(void) {
   test_union();
   test_outer();
@@ -271,6 +284,7 @@ static void test_range(void) {
   test_contains();
   test_is_subset();
   test_remove();
+  test_remove_left();
 }
 
 TEST_MAIN(test_range)

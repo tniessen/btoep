@@ -1,3 +1,5 @@
+#include <assert.h>
+
 #include "../include/btoep/range.h"
 
 #define swap(a, b) do { (a) = (a) ^ (b); (b) = (a) ^ (b); a = (a) ^ (b); } while (0)
@@ -105,4 +107,9 @@ void btoep_range_remove(btoep_range* left_in, btoep_range* right, btoep_range re
     right->offset = left_in->offset + left_in->length;
     right->length = 0;
   }
+}
+
+btoep_range btoep_range_remove_left(btoep_range in, uint64_t n) {
+  assert(in.length >= n);
+  return btoep_mkrange(in.offset + n, in.length - n);
 }
