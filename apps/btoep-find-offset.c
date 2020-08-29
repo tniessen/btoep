@@ -9,58 +9,24 @@
 typedef struct {
   dataset_path_opts paths;
   maybe_uint64 start_at_offset;
-  bool stop_at_data;
-  bool stop_at_missing;
+  bool has_mode;
+  int mode;
 } cmd_opts;
 
 // TODO: Make this prettier with less returns
-bool opt_accept_stop_at(void* out, const char* value) {
+bool opt_accept_mode(void* out, const char* value) {
   cmd_opts* result = out;
-  if (result->stop_at_data || result->stop_at_missing)
+  if (result->has_mode)
     return false;
   if (strcmp(value, "data") == 0) {
-    result->stop_at_data = true;
-  } else if (strcmp(value, "missing") == 0) {
-    result->stop_at_missing = true;
+    result->has_mode = true;
+    result->mode = BTOEP_FIND_DATA;
+  } else if (strcmp(value, "no-data") == 0) {
+    result->has_mode = true;
+    result->mode = BTOEP_FIND_NO_DATA;
   } else {
     return false;
   }
-
-  return true;
-}
-
-bool maybe_result(uint64_t offset, bool looking_for_data,
-                  btoep_range range, uint64_t* result) {
-  if (range.offset > offset) {
-    *result = looking_for_data ? range.offset : offset;
-    return true;
-  } else if (btoep_range_contains(range, offset)) {
-    *result = looking_for_data ? offset : range.offset + range.length;
-    return true;
-  } else {
-    return false;
-  }
-}
-
-bool find_offset(btoep_dataset* dataset, const cmd_opts* opts,
-                 bool* exists, uint64_t* result) {
-  if (!btoep_index_iterator_start(dataset))
-    return false;
-
-  uint64_t offset = opts->start_at_offset.value;
-  btoep_range range;
-
-  while (!btoep_index_iterator_is_eof(dataset)) {
-    if (!btoep_index_iterator_next(dataset, &range))
-      return false;
-    if (maybe_result(offset, opts->stop_at_data, range, result)) {
-      *exists = true;
-      return true;
-    }
-  }
-
-  if ((*exists = !opts->stop_at_data))
-    *result = opts->start_at_offset.value;
 
   return true;
 }
@@ -76,7 +42,7 @@ int main(int argc, char** argv) {
     {
       .name = "--stop-at",
       .has_value = true,
-      .accept = opt_accept_stop_at
+      .accept = opt_accept_mode
     }
   };
 
@@ -85,9 +51,7 @@ int main(int argc, char** argv) {
   cmd_opts opts = {
     .start_at_offset = {
       .value = 0
-    },
-    .stop_at_data = false,
-    .stop_at_missing = false
+    }
   };
   if (!opt_parse(options, 5, &opts, (size_t) argc - 1, argv + 1)) {
     fprintf(stderr, "error\n");
@@ -99,7 +63,7 @@ int main(int argc, char** argv) {
     return B_EXIT_CODE_USAGE_ERROR;
   }
 
-  if (!opts.stop_at_data && !opts.stop_at_missing) {
+  if (!opts.has_mode) {
     fprintf(stderr, "--stop-at is required\n");
     return B_EXIT_CODE_USAGE_ERROR;
   }
@@ -113,7 +77,8 @@ int main(int argc, char** argv) {
 
   bool exists;
   uint64_t result;
-  bool success = find_offset(&dataset, &opts, &exists, &result);
+  bool success = btoep_index_find_offset(&dataset, opts.start_at_offset.value,
+                                         opts.mode, &exists, &result);
 
   // The order is important here. Even if the previous call failed, the dataset
   // should still be closed.

@@ -144,6 +144,12 @@ bool btoep_index_add(btoep_dataset* dataset, btoep_range range);
 
 bool btoep_index_remove(btoep_dataset* dataset, btoep_range range);
 
+#define BTOEP_FIND_DATA    1
+#define BTOEP_FIND_NO_DATA 2
+
+bool btoep_index_find_offset(btoep_dataset* dataset, uint64_t start, int mode,
+                             bool* exists, uint64_t* offset);
+
 bool btoep_index_contains(btoep_dataset* dataset, btoep_range relevant_range, bool* contains);
 
 bool btoep_index_contains_any(btoep_dataset* dataset, btoep_range relevant_range, bool* contains_any);

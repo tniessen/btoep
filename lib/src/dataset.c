@@ -724,6 +724,32 @@ bool btoep_index_remove(btoep_dataset* dataset, btoep_range range) {
   return editor_commit(&editor);
 }
 
+bool btoep_index_find_offset(btoep_dataset* dataset, uint64_t start, int mode,
+                             bool* exists, uint64_t* offset) {
+  if (!btoep_index_iterator_start(dataset))
+    return false;
+
+  btoep_range range;
+  while (!btoep_index_iterator_is_eof(dataset)) {
+    if (!btoep_index_iterator_next(dataset, &range))
+      return false;
+    if (range.offset > start) {
+      *offset = (mode == BTOEP_FIND_DATA) ? range.offset : start;
+      *exists = true;
+      return true;
+    } else if (btoep_range_contains(range, start)) {
+      *offset = (mode == BTOEP_FIND_DATA) ? start : range.offset + range.length;
+      *exists = true;
+      return true;
+    }
+  }
+
+  if ((*exists = (mode == BTOEP_FIND_NO_DATA)))
+    *offset = start;
+
+  return true;
+}
+
 bool btoep_index_contains(btoep_dataset* dataset, btoep_range range, bool* result) {
   if (range.length == 0) {
     uint64_t max_offset;
