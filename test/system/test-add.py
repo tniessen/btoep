@@ -1,4 +1,5 @@
 from helper import SystemTest
+from tempfile import NamedTemporaryFile
 import unittest
 
 class AddTest(SystemTest):
@@ -37,6 +38,25 @@ class AddTest(SystemTest):
     self.assertEqual(self.readIndex(dataset), b'\x80\x02\xff\x07')
 
     # TODO: Test conflicts, overwrite, etc.
+
+  def test_add_from_file(self):
+    # Create a new dataset from a file.
+    path = self.createTempTestFile(b'Hello world\n')
+    dataset = self.reserveDataset()
+    result = self.cmd('btoep-add', '--dataset', dataset, '--source', path, '--offset=0')
+    self.assertEqual(result.stdout, b'')
+    self.assertEqual(result.stderr, b'')
+    self.assertEqual(self.readDataset(dataset), b'Hello world\n')
+    self.assertEqual(self.readIndex(dataset), b'\x00\x0b')
+
+    # Now do the same with Windows-style line endings.
+    path = self.createTempTestFile(b'Hello world\r\n')
+    dataset = self.reserveDataset()
+    result = self.cmd('btoep-add', '--dataset', dataset, '--source', path, '--offset=0')
+    self.assertEqual(result.stdout, b'')
+    self.assertEqual(result.stderr, b'')
+    self.assertEqual(self.readDataset(dataset), b'Hello world\r\n')
+    self.assertEqual(self.readIndex(dataset), b'\x00\x0c')
 
 if __name__ == '__main__':
   unittest.main()

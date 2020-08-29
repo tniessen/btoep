@@ -14,9 +14,14 @@ class SystemTest(unittest.TestCase):
     shutil.rmtree(self.dir)
 
   def reserveDataset(self):
-    path = os.path.join(self.dir, str(self.n_datasets))
+    path = os.path.join(self.dir, 'dataset_' + str(self.n_datasets))
     self.n_datasets += 1
     return path
+
+  def createTempTestFile(self, data):
+    with tempfile.NamedTemporaryFile(delete=False, dir=self.dir) as file:
+      file.write(data)
+      return file.name
 
   def createDataset(self, data, index_data):
     path = self.reserveDataset()
