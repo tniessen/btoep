@@ -3,8 +3,8 @@
 #include <stdio.h>
 
 #ifdef _MSC_VER
-#include <io.h>
-#include <fcntl.h>
+# include <io.h>
+# include <fcntl.h>
 #endif
 
 #include "util/common.h"
