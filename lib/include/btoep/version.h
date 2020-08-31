@@ -1,0 +1,9 @@
+#ifndef __BTOEP__VERSION_H__
+#define __BTOEP__VERSION_H__
+
+#define BTOEP_LIB_VERSION_MAJOR 0
+#define BTOEP_LIB_VERSION_MINOR 1
+#define BTOEP_LIB_VERSION_PATCH 0
+#define BTOEP_LIB_VERSION_PRERELEASE "-pre"
+
+#endif
