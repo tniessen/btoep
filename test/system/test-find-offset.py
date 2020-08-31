@@ -1,7 +1,5 @@
-from helper import SystemTest
+from helper import ExitCode, SystemTest
 import unittest
-
-NO_RESULT = 1
 
 class FindOffsetTest(SystemTest):
 
@@ -12,17 +10,16 @@ class FindOffsetTest(SystemTest):
     ])
 
   def findOffset(self, dataset, start_at, stop_at):
-    result = self.cmd('btoep-find-offset', '--dataset', dataset,
-                      '--start-at', str(start_at), '--stop-at', stop_at)
-    self.assertEqual(result.stderr, b'')
-    return int(result.stdout)
+    output = self.cmd_stdout(['btoep-find-offset', '--dataset', dataset,
+                              '--start-at', str(start_at),
+                              '--stop-at', stop_at],
+                             text=True)
+    return int(output)
 
   def assertNoResult(self, dataset, start_at, stop_at):
-    result = self.cmd('btoep-find-offset', '--dataset', dataset, '--start-at',
-                      str(start_at), '--stop-at', stop_at, check=False)
-    self.assertEqual(result.stdout, b'')
-    self.assertEqual(result.stderr, b'')
-    self.assertEqual(result.returncode, NO_RESULT)
+    self.cmd(['btoep-find-offset', '--dataset', dataset, '--start-at',
+                      str(start_at), '--stop-at', stop_at],
+             expected_returncode = ExitCode.NO_RESULT)
 
   def test_empty_index(self):
     # Test an empty dataset with an empty index

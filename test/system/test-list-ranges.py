@@ -15,9 +15,7 @@ class ListRangesTest(SystemTest):
       args.append('--missing')
     if format is not None:
       args.append('--range-format=' + format)
-    result = self.cmd(*args, text=True)
-    self.assertEqual(result.stderr, '')
-    return result.stdout
+    return self.cmd_stdout(args, text=True)
 
   def test_list_ranges(self):
     # Test an empty dataset with an empty index

@@ -1,8 +1,19 @@
+import enum
+import io
 import os
 import shutil
 import subprocess
 import tempfile
 import unittest
+
+class ExitCode(enum.Enum):
+  SUCCESS = 0
+  NO_RESULT = 1
+  USAGE_ERROR = 2
+  APP_ERROR = 3
+
+def tostring(b):
+  return io.StringIO(b.decode(), None).getvalue()
 
 class SystemTest(unittest.TestCase):
 
@@ -39,21 +50,37 @@ class SystemTest(unittest.TestCase):
     with open(path + '.idx', 'rb') as dataset:
       return dataset.read()
 
-  def cmd(self, *args, **kwargs):
-    if not 'check' in kwargs:
-      kwargs['check'] = True
-    return subprocess.run(args, capture_output=True, timeout=10, **kwargs)
+  def assertOutputIsEqual(self, actual, expected):
+    if isinstance(expected, str):
+      self.assertEqual(tostring(actual), expected)
+    else:
+      self.assertEqual(actual, expected)
+
+  def cmd(self, args,
+          expected_returncode=ExitCode.SUCCESS,
+          expected_stdout=b'',
+          expected_stderr=b'',
+          **kwargs):
+    result = subprocess.run(args, capture_output=True, timeout=10, **kwargs)
+    self.assertEqual(result.returncode, expected_returncode.value)
+    if expected_stdout is not None:
+      self.assertOutputIsEqual(result.stdout, expected_stdout)
+    if expected_stderr is not None:
+      self.assertOutputIsEqual(result.stderr, expected_stderr)
+    return result
+
+  def cmd_stdout(self, args, text=False, **kwargs):
+    result = self.cmd(args, expected_stdout=None, **kwargs)
+    return (tostring(result.stdout) if text else result.stdout)
 
   def assertInfo(self, cmd, options):
-    version = self.cmd(cmd, '--version', text=True)
-    self.assertEqual(version.stderr, '')
-    self.assertTrue(version.stdout.startswith(cmd + ' '))
+    version = self.cmd_stdout([cmd, '--version'], text=True)
+    self.assertTrue(version.startswith(cmd + ' '))
 
-    help = self.cmd(cmd, '--help', text=True)
-    self.assertEqual(help.stderr, '')
-    self.assertTrue(help.stdout.startswith('Usage: ' + cmd + ' [options]\n'))
+    help = self.cmd_stdout([cmd, '--help'], text=True)
+    self.assertTrue(help.startswith('Usage: ' + cmd + ' [options]\n'))
     for option in options + ['--version', '--help']:
-      self.assertIn('\n' + option, help.stdout)
+      self.assertIn('\n' + option, help)
     # By convention, the information should not exceed 80 columns.
-    for line in help.stdout.splitlines():
+    for line in help.splitlines():
       self.assertLessEqual(len(line), 80)

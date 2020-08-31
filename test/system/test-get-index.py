@@ -13,9 +13,7 @@ class GetIndexTest(SystemTest):
     args = ['btoep-get-index', '--dataset', dataset]
     if min_range_length is not None:
       args.append('--min-range-length=' + str(min_range_length))
-    result = self.cmd(*args)
-    self.assertEqual(result.stderr, b'')
-    return result.stdout
+    return self.cmd_stdout(args)
 
   def test_get_index(self):
     # Test an empty dataset with an empty index

@@ -1,4 +1,4 @@
-from helper import SystemTest
+from helper import ExitCode, SystemTest
 import unittest
 
 class ReadTest(SystemTest):
@@ -20,16 +20,12 @@ class ReadTest(SystemTest):
     return args
 
   def cmdRead(self, dataset, **kwargs):
-    args = self.getCmdArgs(dataset, **kwargs)
-    result = self.cmd(*args)
-    self.assertEqual(result.stderr, b'')
-    return result.stdout
+    return self.cmd_stdout(self.getCmdArgs(dataset, **kwargs))
 
   def assertOutOfBounds(self, dataset, **kwargs):
-    args = self.getCmdArgs(dataset, **kwargs)
-    result = self.cmd(*args, check=False, text=True)
-    self.assertEqual(result.stderr, 'Error: Read out of bounds\n')
-    # TODO: Check exit code
+    self.cmd(self.getCmdArgs(dataset, **kwargs),
+             expected_returncode = ExitCode.APP_ERROR,
+             expected_stderr = 'Error: Read out of bounds\n')
 
   def test_read(self):
     # Test an empty dataset with an empty index

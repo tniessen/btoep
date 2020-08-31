@@ -1,8 +1,6 @@
-from helper import SystemTest
+from helper import ExitCode, SystemTest
 import os
 import unittest
-
-B_EXIT_CODE_APP_ERROR = 3
 
 class SetSizeTest(SystemTest):
 
@@ -16,17 +14,13 @@ class SetSizeTest(SystemTest):
     args = ['btoep-set-size', '--dataset', dataset, '--size', str(size)]
     if force:
       args.append('--force')
-    result = self.cmd(*args)
-    self.assertEqual(result.stdout, b'')
-    self.assertEqual(result.stderr, b'')
+    self.cmd(args)
     self.assertEqual(size, os.path.getsize(dataset))
 
   def assertFailDestructive(self, dataset, size):
-    args = ['btoep-set-size', '--dataset', dataset, '--size', str(size)]
-    result = self.cmd(*args, check=False, text=True)
-    self.assertEqual(result.stdout, '')
-    self.assertEqual(result.stderr, 'Error: Destructive action\n')
-    self.assertEqual(result.returncode, B_EXIT_CODE_APP_ERROR)
+    self.cmd(['btoep-set-size', '--dataset', dataset, '--size', str(size)],
+             expected_returncode = ExitCode.APP_ERROR,
+             expected_stderr = 'Error: Destructive action\n')
 
   def test_set_size(self):
     all_data = ((b'\xaa' * 256) + (b'\xbb' * 256) + (b'\xcc' * 256)) * 3
