@@ -242,25 +242,27 @@ void btoep_get_error(btoep_dataset* dataset, int* code, const char** message) {
 }
 
 bool btoep_data_add_range(btoep_dataset* dataset, btoep_range range, const void* data, int conflict_mode) {
-  return btoep_data_write(dataset, range.offset, data, range.length, conflict_mode) &&
+  return btoep_data_write(dataset, range, data, conflict_mode) &&
          btoep_index_add(dataset, range);
 }
 
-bool btoep_data_write(btoep_dataset* dataset, uint64_t offset, const void* data, size_t length, int conflict_mode) {
+bool btoep_data_write(btoep_dataset* dataset, btoep_range range, const void* data, int conflict_mode) {
   if (!btoep_index_iterator_start(dataset))
     return false;
 
   btoep_range entry;
 
-  if (!fd_seek(dataset, dataset->data_fd, offset, SEEK_SET, NULL))
+  if (!fd_seek(dataset, dataset->data_fd, range.offset, SEEK_SET, NULL))
     return false;
 
-  while (length != 0) {
-    // Try to find an index entry that covers at least some area after the start of the remaining data.
+  const uint8_t* remaining_data = data;
+  while (range.length != 0) {
+    // Try to find an index entry that covers at least some area after the start
+    // of the remaining data.
     while (!btoep_index_iterator_is_eof(dataset)) {
       if (!btoep_index_iterator_peek(dataset, &entry))
         return false;
-      if (btoep_range_intersect(&entry, btoep_mkrange(offset, length)))
+      if (btoep_range_intersect(&entry, range))
         break;
       if (!btoep_index_iterator_skip(dataset))
         return false;
@@ -268,46 +270,40 @@ bool btoep_data_write(btoep_dataset* dataset, uint64_t offset, const void* data,
 
     // If no entry exists, we can write the rest of the data.
     // If an entry exists, we can write up to the entry.
-    uint64_t safe_length = length;
+    uint64_t safe_length = range.length;
     if (!btoep_index_iterator_is_eof(dataset))
-      safe_length = entry.offset - offset;
+      safe_length = entry.offset - range.offset;
 
-    if (!fd_write(dataset, dataset->data_fd, data, safe_length))
+    if (!fd_write(dataset, dataset->data_fd, remaining_data, safe_length))
       return false;
 
-    offset += safe_length;
-    length -= safe_length;
-    data = ((uint8_t*) data) + safe_length;
+    range = btoep_range_remove_left(range, safe_length);
+    remaining_data += safe_length;
 
     if (!btoep_index_iterator_is_eof(dataset)) {
       // This is existing data.
       if (conflict_mode == BTOEP_CONFLICT_KEEP_OLD) {
         // Simply ignore the data and skip ahead.
         // TODO: Fail if the data does not exist because the file is too short?
-        uint64_t fd_offset;
-        if (!fd_seek(dataset, dataset->data_fd, entry.length, SEEK_CUR, &fd_offset))
+        if (!fd_seek(dataset, dataset->data_fd, entry.length, SEEK_CUR, NULL))
           return false;
-        offset += entry.length;
-        length -= entry.length;
-        data = ((uint8_t*) data) + entry.length;
-        assert(offset == fd_offset);
       } else if (conflict_mode == BTOEP_CONFLICT_ERROR) {
         // Ensure the data is the same.
         uint8_t buf[8 * 1024];
         size_t n_read = entry.length; // TODO: Loop etc.
         if (!fd_read(dataset, dataset->data_fd, buf, &n_read))
           return false;
-        if (memcmp(buf, data, n_read) != 0)
+        if (memcmp(buf, remaining_data, n_read) != 0)
           return set_error(dataset, B_ERR_DATA_CONFLICT, false);
-        offset += entry.length;
-        length -= entry.length;
-        data = ((uint8_t*) data) + entry.length;
       } else {
         assert(conflict_mode == BTOEP_CONFLICT_OVERWRITE);
-        // TODO
+        if (!fd_write(dataset, dataset->data_fd, remaining_data, entry.length))
+          return false;
       }
+      range = btoep_range_remove_left(range, entry.length);
+      remaining_data += entry.length;
     } else {
-      assert(length == 0);
+      assert(range.length == 0);
     }
   }
 

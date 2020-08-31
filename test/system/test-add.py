@@ -1,6 +1,10 @@
 from helper import SystemTest
+from io import StringIO
 from tempfile import NamedTemporaryFile
 import unittest
+
+def tostring(b):
+  return StringIO(b.decode(), None).getvalue()
 
 class AddTest(SystemTest):
 
@@ -19,6 +23,7 @@ class AddTest(SystemTest):
     self.assertEqual(result.stdout, b'')
     self.assertEqual(result.stderr, b'')
     self.assertEqual(self.readDataset(dataset)[512:640], all_data[512:640])
+    self.assertEqual(len(self.readDataset(dataset)), 640)
     self.assertEqual(self.readIndex(dataset), b'\x80\x04\x7f')
 
     # Add another, separate range.
@@ -43,7 +48,41 @@ class AddTest(SystemTest):
     self.assertEqual(self.readDataset(dataset)[256:1280], all_data[256:1280])
     self.assertEqual(self.readIndex(dataset), b'\x80\x02\xff\x07')
 
-    # TODO: Test conflicts, overwrite, etc.
+    # Create conflicting data by swapping every single bit.
+    conflicting_data = bytes([v ^ 0xff for v in all_data])
+
+    # Adding conflicting data with the default/error behavior should not change
+    # existing ranges or the file size, and should not modify the index.
+    result = self.cmd('btoep-add', '--dataset', dataset, '--offset=0', input=conflicting_data, check=False)
+    self.assertEqual(result.stdout, b'')
+    self.assertEqual(tostring(result.stderr), 'Error: Data conflict\n')
+    self.assertEqual(result.returncode, 3) # TODO: Use constant instead of literal
+
+    result = self.cmd('btoep-add', '--dataset', dataset, '--offset=0', '--on-conflict=error', input=conflicting_data, check=False)
+    self.assertEqual(result.stdout, b'')
+    self.assertEqual(tostring(result.stderr), 'Error: Data conflict\n')
+    self.assertEqual(result.returncode, 3) # TODO: Use constant instead of literal
+
+    # Ensure dataset and index are unchanged.
+    self.assertEqual(self.readDataset(dataset)[256:1280], all_data[256:1280])
+    self.assertEqual(len(self.readDataset(dataset)), 1280)
+    self.assertEqual(self.readIndex(dataset), b'\x80\x02\xff\x07')
+
+    result = self.cmd('btoep-add', '--dataset', dataset, '--offset=0', '--on-conflict=keep', input=conflicting_data)
+    self.assertEqual(result.stdout, b'')
+    self.assertEqual(result.stderr, b'')
+    self.assertEqual(self.readDataset(dataset)[0:256], conflicting_data[0:256])
+    self.assertEqual(self.readDataset(dataset)[256:1280], all_data[256:1280])
+    self.assertEqual(self.readDataset(dataset)[1280:], conflicting_data[1280:])
+    self.assertEqual(len(self.readDataset(dataset)), len(conflicting_data))
+    self.assertEqual(self.readIndex(dataset), b'\x00\xff\x11')
+
+    result = self.cmd('btoep-add', '--dataset', dataset, '--offset=0', '--on-conflict=overwrite', input=all_data)
+    self.assertEqual(result.stdout, b'')
+    self.assertEqual(result.stderr, b'')
+    self.assertEqual(self.readDataset(dataset), all_data)
+    self.assertEqual(len(self.readDataset(dataset)), len(all_data))
+    self.assertEqual(self.readIndex(dataset), b'\x00\xff\x11')
 
   def test_add_from_file(self):
     # Create a new dataset from a file.

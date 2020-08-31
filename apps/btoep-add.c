@@ -54,56 +54,53 @@ int main(int argc, char** argv) {
     source = fopen(opts.source_path, "rb");
     if (source == NULL) {
       perror("fopen");
-      return 1;
+      return B_EXIT_CODE_APP_ERROR;
     }
   }
 
   btoep_dataset dataset;
   if (!btoep_open(&dataset, opts.paths.data_path, opts.paths.index_path, opts.paths.lock_path)) {
-    perror("btoep_open");
-    return 1;
+    print_error(&dataset);
+    return B_EXIT_CODE_APP_ERROR;
   }
 
   /*uint64_t max_length = (uint64_t) -1;
   if (opts.enforce_length.exists)
     max_length = opts.enforce_length.value;*/
 
+  bool btoep_ok = true, source_ok = true;
+
   char buffer[64 * 1024];
-  uint64_t offset = opts.offset.value, length = 0;
+  btoep_range added_range = btoep_mkrange(opts.offset.value, 0);
   while (!feof(source)) {
     size_t n_read = fread(buffer, 1, sizeof(buffer), source);
     if (n_read < sizeof(buffer) && ferror(source)) {
       perror("fread");
-      btoep_close(&dataset); // TODO: Error handling
-      return 1;
+      source_ok = false;
+      break;
     }
 
     // We intentionally do not use btoep_data_add_range here to avoid modifying
     // the index until all data has been written successfully.
-    if (!btoep_data_write(&dataset, offset + length, buffer, n_read, opts.on_conflict.value)) {
-      // TODO
-      const char* message;
-      btoep_get_error(&dataset, NULL, &message);
-      printf("error %s\n", message);
+    btoep_range new_range = btoep_mkrange(added_range.offset + added_range.length, n_read);
+    if (!btoep_data_write(&dataset, new_range, buffer, opts.on_conflict.value)) {
+      btoep_ok = false;
+      break;
     }
 
-    length += n_read;
+    added_range.length += n_read;
   }
 
   fclose(source); // TODO: Check the return value
 
-  if (length != 0) {
-    btoep_range added_range = { offset, length };
-    if (!btoep_index_add(&dataset, added_range)) {
-      printf("error\n");
-      // TODO
-    }
+  if (added_range.length != 0 && btoep_ok && source_ok) {
+    if (!btoep_index_add(&dataset, added_range))
+      btoep_ok = false;
   }
 
-  if (!btoep_close(&dataset)) {
+  btoep_ok = btoep_close(&dataset) && btoep_ok;
+  if (!btoep_ok)
     print_error(&dataset);
-    return B_EXIT_CODE_APP_ERROR;
-  }
 
-  return B_EXIT_CODE_SUCCESS;
+  return (btoep_ok && source_ok) ? B_EXIT_CODE_SUCCESS : B_EXIT_CODE_APP_ERROR;
 }
