@@ -9,5 +9,9 @@ Options:
 --lockfile-path=<path>     Use this lock file instead of the default one. This
                            is dangerous.
 --offset=<offset>          Start reading at the given position within the file.
---length=<length>          Read exactly this many bytes. If not specified, read
-                           as many bytes as possible.
+--length=<length>          Read exactly this many bytes, unless overridden by
+                           --limit=<limit>. Fail if less bytes are available.
+--limit=<limit>            Do not read more than this many bytes. Less bytes
+                           might be read if less are available. This option has
+                           no effect if --length=<length> is specified with
+                           length <= limit.

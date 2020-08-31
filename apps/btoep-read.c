@@ -14,22 +14,24 @@ typedef struct {
   dataset_path_opts paths;
   optional_uint64 offset;
   optional_uint64 length;
+  optional_uint64 limit;
 } cmd_opts;
 
 int main(int argc, char** argv) {
-  opt_def options[5] = {
+  opt_def options[6] = {
     UINT64_OPTION("--offset", offset),
-    UINT64_OPTION("--length", length)
+    UINT64_OPTION("--length", length),
+    UINT64_OPTION("--limit", limit)
   };
 
-  opt_add_nested(options + 2, dataset_path_opt_defs, 3, offsetof(cmd_opts, paths));
+  opt_add_nested(options + 3, dataset_path_opt_defs, 3, offsetof(cmd_opts, paths));
 
   cmd_opts opts = {
     .offset = {
       .value = 0
     }
   };
-  parse_cmd_opts(options, 5, &opts, (size_t) argc - 1, argv + 1,
+  parse_cmd_opts(options, 6, &opts, (size_t) argc - 1, argv + 1,
                  read_usage_string, "btoep-read");
 
   if (!opts.paths.data_path) {
@@ -56,6 +58,9 @@ int main(int argc, char** argv) {
       range = btoep_mkrange(opts.offset.value, end_offset - opts.offset.value);
     }
   }
+
+  if (opts.limit.set_by_user && range.length > opts.limit.value)
+    range.length = opts.limit.value;
 
 #ifdef _MSC_VER
   // Prevent Windows from replacing '\n' with '\r\n' when calling fwrite.

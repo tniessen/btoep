@@ -6,27 +6,30 @@ class ReadTest(SystemTest):
   def test_info(self):
     self.assertInfo('btoep-read', [
       '--dataset', '--index-path', '--lockfile-path',
-      '--offset', '--length'
+      '--offset', '--length', '--limit'
     ])
 
-  def cmdRead(self, dataset, offset=None, length=None):
+  def getCmdArgs(self, dataset, offset=None, length=None, limit=None):
     args = ['btoep-read', '--dataset', dataset]
     if offset is not None:
       args.append('--offset=' + str(offset))
     if length is not None:
       args.append('--length=' + str(length))
+    if limit is not None:
+      args.append('--limit=' + str(limit))
+    return args
+
+  def cmdRead(self, dataset, **kwargs):
+    args = self.getCmdArgs(dataset, **kwargs)
     result = self.cmd(*args)
     self.assertEqual(result.stderr, b'')
     return result.stdout
 
-  def assertOutOfBounds(self, dataset, offset=None, length=None):
-    args = ['btoep-read', '--dataset', dataset]
-    if offset is not None:
-      args.append('--offset=' + str(offset))
-    if length is not None:
-      args.append('--length=' + str(length))
+  def assertOutOfBounds(self, dataset, **kwargs):
+    args = self.getCmdArgs(dataset, **kwargs)
     result = self.cmd(*args, check=False, text=True)
     self.assertEqual(result.stderr, 'Error: Read out of bounds\n')
+    # TODO: Check exit code
 
   def test_read(self):
     # Test an empty dataset with an empty index
@@ -63,6 +66,19 @@ class ReadTest(SystemTest):
     self.assertOutOfBounds(dataset, offset=258, length=1024)
     self.assertEqual(self.cmdRead(dataset, offset=385), b'\x0a')
     self.assertEqual(self.cmdRead(dataset, offset=386), b'')
+
+    # Test the --limit option with the previous dataset
+    self.assertEqual(self.cmdRead(dataset, limit=10), b'')
+    self.assertOutOfBounds(dataset, length=2, limit=1)
+    self.assertOutOfBounds(dataset, length=2, limit=10)
+    self.assertEqual(self.cmdRead(dataset, offset=128), b'')
+    self.assertEqual(self.cmdRead(dataset, offset=129), b'\x0a' * 128)
+    self.assertEqual(self.cmdRead(dataset, offset=129, length=64), b'\x0a' * 64)
+    self.assertEqual(self.cmdRead(dataset, offset=129, length=64, limit=100), b'\x0a' * 64)
+    self.assertEqual(self.cmdRead(dataset, offset=256, length=10, limit=1), b'\x0a')
+    self.assertEqual(self.cmdRead(dataset, offset=256, limit=9), b'\x0a')
+    self.assertEqual(self.cmdRead(dataset, offset=258, limit=10), b'\x0a' * 10)
+    self.assertEqual(self.cmdRead(dataset, offset=259, limit=128), b'\x0a' * 127)
 
     # Test a range that doesn't fit into the internal 64 KiB buffer
     dataset = self.createDataset(b'\x0a' * 1024 * 512, b'\x00\xff\xff\x1f')
