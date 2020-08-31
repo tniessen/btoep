@@ -3,6 +3,12 @@ import unittest
 
 class GetIndexTest(SystemTest):
 
+  def test_info(self):
+    self.assertInfo('btoep-get-index', [
+      '--dataset', '--index-path', '--lockfile-path',
+      '--min-range-length'
+    ])
+
   def cmdGetIndex(self, dataset, min_range_length=None):
     args = ['btoep-get-index', '--dataset', dataset]
     if min_range_length is not None:

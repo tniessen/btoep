@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #include "util/common.h"
-#include "util/opt.h"
+#include "util/res.h"
 
 typedef struct {
   dataset_path_opts paths;
@@ -31,19 +31,17 @@ int main(int argc, char** argv) {
       .value = 0
     }
   };
-  if (!opt_parse(options, 5, &opts, (size_t) argc - 1, argv + 1)) {
-    fprintf(stderr, "error\n");
-    return B_EXIT_CODE_USAGE_ERROR;
-  }
+  parse_cmd_opts(options, 5, &opts, (size_t) argc - 1, argv + 1,
+                 find_offset_usage_string, "btoep-find-offset");
 
   if (!opts.paths.data_path) {
-    fprintf(stderr, "need data path\n");
-    return B_EXIT_CODE_USAGE_ERROR;
+    fprintf(stderr, "Error: The --dataset option is required.\n");
+    return offer_more_info("btoep-find-offset");
   }
 
   if (!opts.mode.set_by_user) {
-    fprintf(stderr, "--stop-at is required\n");
-    return B_EXIT_CODE_USAGE_ERROR;
+    fprintf(stderr, "Error: The --stop-at option is required.\n");
+    return offer_more_info("btoep-find-offset");
   }
 
   btoep_dataset dataset;

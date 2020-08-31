@@ -29,11 +29,11 @@ void opt_add_nested(opt_def* out, const opt_def* nested_defs, size_t n_nested_de
 }
 
 // TODO: Simplify this
-bool opt_parse(const opt_def* defs, size_t n_defs, void *out, size_t argc, char * const * argv) {
+size_t opt_parse(const opt_def* defs, size_t n_defs, void *out, size_t argc, char * const * argv) {
   bool only_positional = false;
-  size_t positional_offset = 0;
+  size_t i, positional_offset = 0;
 
-  for (size_t i = 0; i < argc; i++) {
+  for (i = 0; i < argc; i++) {
     const char* value = NULL;
     const opt_def* def;
 
@@ -49,26 +49,26 @@ bool opt_parse(const opt_def* defs, size_t n_defs, void *out, size_t argc, char 
       size_t opt_index = 0;
       size_t name_len = value ? (size_t) (value - argv[i] - 1) : strlen(argv[i]);
       if (!find_def(defs, n_defs, &opt_index, argv[i], name_len))
-        return false;
+        break;
       def = defs + opt_index;
 
       if (value == NULL && defs[opt_index].has_value) {
         if (i + 1 >= argc)
-          return false;
+          break;
         value = argv[++i];
       }
     } else {
       if (!find_def(defs, n_defs, &positional_offset, NULL, 0))
-        return false;
+        break;
       def = defs + positional_offset;
       value = argv[i];
     }
 
     if (!def->accept(((uint8_t*) out) + def->out_offset, value))
-      return false;
+      break;
   }
 
-  return true;
+  return i;
 }
 
 bool opt_accept_string_once(void* out, const char* value) {

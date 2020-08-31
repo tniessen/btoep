@@ -4,6 +4,12 @@ import unittest
 
 class AddTest(SystemTest):
 
+  def test_info(self):
+    self.assertInfo('btoep-add', [
+      '--dataset', '--index-path', '--lockfile-path',
+      '--offset', '--on-conflict', '--source'
+    ])
+
   def test_add(self):
     all_data = ((b'\xaa' * 256) + (b'\xbb' * 256) + (b'\xcc' * 256)) * 3
 

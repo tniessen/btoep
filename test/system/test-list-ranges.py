@@ -3,6 +3,12 @@ import unittest
 
 class ListRangesTest(SystemTest):
 
+  def test_info(self):
+    self.assertInfo('btoep-list-ranges', [
+      '--dataset', '--index-path', '--lockfile-path',
+      '--range-format', '--missing'
+    ])
+
   def cmdListRanges(self, dataset, missing = False, format = None):
     args = ['btoep-list-ranges', '--dataset', dataset]
     if missing:

@@ -1,0 +1,14 @@
+Usage: btoep-find-offset [options]
+Find a position within a dataset.
+
+Options:
+--help                     Display this information.
+--version                  Display the version of this tool.
+--dataset=<name>           Name (or path) of the dataset.
+--index-path=<path>        Use this index file instead of the default one.
+--lockfile-path=<path>     Use this lock file instead of the default one. This
+                           is dangerous.
+--start-at=<offset>        Start searching at the given offset. If not
+                           specified, search from the beginning of the file.
+--stop-at=<data|no-data>   Search for the first offset that matches this
+                           criterion.

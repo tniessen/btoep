@@ -12,7 +12,7 @@ typedef struct {
 
 void opt_add_nested(opt_def* out, const opt_def* nested_defs, size_t n_nested_defs, size_t out_offset);
 
-bool opt_parse(const opt_def* defs, size_t n_defs, void* out, size_t argc, char * const * argv);
+size_t opt_parse(const opt_def* defs, size_t n_defs, void* out, size_t argc, char * const * argv);
 
 /* Utility functions and macros */
 

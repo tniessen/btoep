@@ -9,7 +9,7 @@
 #endif
 
 #include "util/common.h"
-#include "util/opt.h"
+#include "util/res.h"
 
 static void write_uleb128(uint64_t value) {
   do {
@@ -62,14 +62,12 @@ int main(int argc, char** argv) {
       .value = 0
     }
   };
-  if (!opt_parse(options, 4, &opts, (size_t) argc - 1, argv + 1)) {
-    fprintf(stderr, "error\n");
-    return B_EXIT_CODE_USAGE_ERROR;
-  }
+  parse_cmd_opts(options, 4, &opts, (size_t) argc - 1, argv + 1,
+                 get_index_usage_string, "btoep-get-index");
 
   if (!opts.paths.data_path) {
-    fprintf(stderr, "need data path\n");
-    return B_EXIT_CODE_USAGE_ERROR;
+    fprintf(stderr, "Error: The --dataset option is required.\n");
+    return offer_more_info("btoep-get-index");
   }
 
   btoep_dataset dataset;

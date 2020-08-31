@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #include "util/common.h"
-#include "util/opt.h"
+#include "util/res.h"
 
 typedef void (*print_range_fn)(btoep_range range);
 typedef bool (*list_fn)(btoep_dataset* dataset, print_range_fn print_range);
@@ -91,14 +91,12 @@ int main(int argc, char** argv) {
       .value = print_range_incl
     }
   };
-  if (!opt_parse(options, 5, &opts, (size_t) argc - 1, argv + 1)) {
-    fprintf(stderr, "error\n");
-    return B_EXIT_CODE_USAGE_ERROR;
-  }
+  parse_cmd_opts(options, 5, &opts, (size_t) argc - 1, argv + 1,
+                 list_ranges_usage_string, "btoep-list-ranges");
 
   if (!opts.paths.data_path) {
-    fprintf(stderr, "need data path\n");
-    return B_EXIT_CODE_USAGE_ERROR;
+    fprintf(stderr, "Error: The --dataset option is required.\n");
+    return offer_more_info("btoep-list-ranges");
   }
 
   btoep_dataset dataset;

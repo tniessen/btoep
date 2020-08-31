@@ -1,0 +1,16 @@
+Usage: btoep-list-ranges [options]
+Display all ranges present or missing within a dataset.
+
+Options:
+--help                     Display this information.
+--version                  Display the version of this tool.
+--dataset=<name>           Name (or path) of the dataset.
+--index-path=<path>        Use this index file instead of the default one.
+--lockfile-path=<path>     Use this lock file instead of the default one. This
+                           is dangerous.
+--range-format=<format>    Display ranges in the given format. Possible values:
+                           - incl (default):
+                             Display ranges as "a..b", where b is inclusive.
+                           - excl:
+                             Display ranges as "a...b", where b is exclusive.
+--missing                  Display missing ranges instead of existing ranges.

@@ -1,7 +1,13 @@
 from helper import SystemTest
 import unittest
 
-class FindOffsetTest(SystemTest):
+class ReadTest(SystemTest):
+
+  def test_info(self):
+    self.assertInfo('btoep-read', [
+      '--dataset', '--index-path', '--lockfile-path',
+      '--offset', '--length'
+    ])
 
   def cmdRead(self, dataset, offset=None, length=None):
     args = ['btoep-read', '--dataset', dataset]

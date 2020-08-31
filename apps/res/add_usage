@@ -1,0 +1,22 @@
+Usage: btoep-add [options]
+Add data to a new or existing dataset.
+
+Options:
+--help                     Display this information.
+--version                  Display the version of this tool.
+--dataset=<name>           Name (or path) of the dataset.
+--index-path=<path>        Use this index file instead of the default one.
+--lockfile-path=<path>     Use this lock file instead of the default one. This
+                           is dangerous.
+--offset=<offset>          Insert the data at the given offset, starting at
+                           zero.
+--on-conflict=<value>      Change how to deal with existing, conflicting data.
+                           - error (default):
+                             Conflicting data will abort the operation.
+                           - keep:
+                             Existing data is never replaced with new data.
+                           - overwrite:
+                             Existing data is overwritten with new data.
+--source=<path>            Read data from a file. If not specified, or if the
+                           given path is '-', data is read from the standard
+                           input stream (stdin).

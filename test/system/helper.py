@@ -43,3 +43,17 @@ class SystemTest(unittest.TestCase):
     if not 'check' in kwargs:
       kwargs['check'] = True
     return subprocess.run(args, capture_output=True, timeout=10, **kwargs)
+
+  def assertInfo(self, cmd, options):
+    version = self.cmd(cmd, '--version', text=True)
+    self.assertEqual(version.stderr, '')
+    self.assertTrue(version.stdout.startswith(cmd + ' '))
+
+    help = self.cmd(cmd, '--help', text=True)
+    self.assertEqual(help.stderr, '')
+    self.assertTrue(help.stdout.startswith('Usage: ' + cmd + ' [options]\n'))
+    for option in options + ['--version', '--help']:
+      self.assertIn('\n' + option, help.stdout)
+    # By convention, the information should not exceed 80 columns.
+    for line in help.stdout.splitlines():
+      self.assertLessEqual(len(line), 80)

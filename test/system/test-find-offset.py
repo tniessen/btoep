@@ -5,6 +5,12 @@ NO_RESULT = 1
 
 class FindOffsetTest(SystemTest):
 
+  def test_info(self):
+    self.assertInfo('btoep-find-offset', [
+      '--dataset', '--index-path', '--lockfile-path',
+      '--start-at', '--stop-at'
+    ])
+
   def findOffset(self, dataset, start_at, stop_at):
     result = self.cmd('btoep-find-offset', '--dataset', dataset,
                       '--start-at', str(start_at), '--stop-at', stop_at)

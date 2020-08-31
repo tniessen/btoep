@@ -1,0 +1,13 @@
+Usage: btoep-read [options]
+Read all or some data from a dataset.
+
+Options:
+--help                     Display this information.
+--version                  Display the version of this tool.
+--dataset=<name>           Name (or path) of the dataset.
+--index-path=<path>        Use this index file instead of the default one.
+--lockfile-path=<path>     Use this lock file instead of the default one. This
+                           is dangerous.
+--offset=<offset>          Start reading at the given position within the file.
+--length=<length>          Read exactly this many bytes. If not specified, read
+                           as many bytes as possible.

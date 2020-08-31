@@ -6,6 +6,12 @@ B_EXIT_CODE_APP_ERROR = 3
 
 class SetSizeTest(SystemTest):
 
+  def test_info(self):
+    self.assertInfo('btoep-set-size', [
+      '--dataset', '--index-path', '--lockfile-path',
+      '--size', '--force'
+    ])
+
   def assertSetSize(self, dataset, size, force = False):
     args = ['btoep-set-size', '--dataset', dataset, '--size', str(size)]
     if force:

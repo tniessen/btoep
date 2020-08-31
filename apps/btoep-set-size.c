@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 #include "util/common.h"
-#include "util/opt.h"
+#include "util/res.h"
 
 typedef struct {
   dataset_path_opts paths;
@@ -21,19 +21,17 @@ int main(int argc, char** argv) {
   cmd_opts opts = {
     .force = false
   };
-  if (!opt_parse(options, 5, &opts, (size_t) argc - 1, argv + 1)) {
-    fprintf(stderr, "error\n");
-    return B_EXIT_CODE_USAGE_ERROR;
-  }
+  parse_cmd_opts(options, 5, &opts, (size_t) argc - 1, argv + 1,
+                 set_size_usage_string, "btoep-set-size");
 
   if (!opts.paths.data_path) {
-    fprintf(stderr, "need data path\n");
-    return B_EXIT_CODE_USAGE_ERROR;
+    fprintf(stderr, "Error: The --dataset option is required.\n");
+    return offer_more_info("btoep-set-size");
   }
 
   if (!opts.size.set_by_user) {
-    fprintf(stderr, "need size\n");
-    return B_EXIT_CODE_USAGE_ERROR;
+    fprintf(stderr, "Error: The --size option is required.\n");
+    return offer_more_info("btoep-set-size");
   }
 
   btoep_dataset dataset;

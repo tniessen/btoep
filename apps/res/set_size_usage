@@ -1,0 +1,13 @@
+Usage: btoep-set-size [options]
+Changes the size of a dataset.
+
+Options:
+--help                     Display this information.
+--version                  Display the version of this tool.
+--dataset=<name>           Name (or path) of the dataset.
+--index-path=<path>        Use this index file instead of the default one.
+--lockfile-path=<path>     Use this lock file instead of the default one. This
+                           is dangerous.
+--size=<size>              Change the file size to this value.
+--force                    Allow shrinking the file to the point of removing
+                           existing data.

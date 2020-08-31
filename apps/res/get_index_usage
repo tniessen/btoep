@@ -1,0 +1,12 @@
+Usage: btoep-get-index [options]
+Copy the index to the standard output stream.
+
+Options:
+--help                     Display this information.
+--version                  Display the version of this tool.
+--dataset=<name>           Name (or path) of the dataset.
+--index-path=<path>        Use this index file instead of the default one.
+--lockfile-path=<path>     Use this lock file instead of the default one. This
+                           is dangerous.
+--min-range-length=<len>   Do not include ranges shorter than this length in the
+                           output.
