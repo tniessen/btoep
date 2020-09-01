@@ -25,12 +25,15 @@
 #define B_ERR_INVALID_INDEX_FORMAT 4
 #define B_ERR_DATA_CONFLICT        5
 #define B_ERR_READ_OUT_OF_BOUNDS   6
+#define B_ERR_INVALID_ARGUMENT     7
 
 #ifdef _MSC_VER
+# define OS_MAX_PATH MAX_PATH
 typedef LPCTSTR btoep_path;
 typedef TCHAR btoep_path_buffer[MAX_PATH];
 typedef HANDLE btoep_fd;
 #else
+# define OS_MAX_PATH PATH_MAX
 typedef const char* btoep_path;
 typedef char btoep_path_buffer[PATH_MAX];
 typedef int btoep_fd;

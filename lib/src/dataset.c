@@ -140,13 +140,10 @@ static bool fd_close(btoep_dataset* dataset, btoep_fd fd) {
 }
 
 static bool copy_path(char* out, const char* in, const char* def, const char* ext) {
-  if (in == NULL) {
-    strcpy(out, def);
-    strcat(out, ext);
-  } else {
-    strcpy(out, in);
-  }
-  return true; // TODO: Bound checking etc
+  int n = (in == NULL) ? snprintf(out, OS_MAX_PATH, "%s%s", def, ext)
+                       : snprintf(out, OS_MAX_PATH, "%s", in);
+  assert(n >= 0);
+  return n < OS_MAX_PATH;
 }
 
 static bool btoep_lock(btoep_dataset* dataset) {
@@ -180,9 +177,12 @@ static bool btoep_unlock(btoep_dataset* dataset) {
 
 // TODO: Allow read-only open
 bool btoep_open(btoep_dataset* dataset, btoep_path data_path, btoep_path index_path, btoep_path lock_path) {
-  strcpy(dataset->data_path, data_path);
-  copy_path(dataset->index_path, index_path, data_path, ".idx");
-  copy_path(dataset->lock_path, lock_path, data_path, ".lck");
+  if (dataset == NULL || data_path == NULL ||
+      !copy_path(dataset->data_path, data_path, NULL, NULL) ||
+      !copy_path(dataset->index_path, index_path, data_path, ".idx") ||
+      !copy_path(dataset->lock_path, lock_path, data_path, ".lck")) {
+    return set_error(dataset, B_ERR_INVALID_ARGUMENT, false);
+  }
 
   if (!btoep_lock(dataset))
     return false;
@@ -200,8 +200,14 @@ bool btoep_open(btoep_dataset* dataset, btoep_path data_path, btoep_path index_p
 
   // Determine the index size.
   if (!fd_seek(dataset, dataset->index_fd, 0, SEEK_END, &dataset->total_index_size_on_disk) ||
-      !fd_seek(dataset, dataset->index_fd, 0, SEEK_SET, NULL))
+      !fd_seek(dataset, dataset->index_fd, 0, SEEK_SET, NULL)) {
+    // TODO: Return values
+    fd_close(dataset, dataset->data_fd);
+    fd_close(dataset, dataset->index_fd);
+    btoep_unlock(dataset);
     return false;
+  }
+
   dataset->total_index_size = dataset->total_index_size_on_disk;
   dataset->current_index_offset = 0;
 
@@ -229,7 +235,8 @@ const char* error_messages[] = {
   "Destructive action",
   "Invalid index format",
   "Data conflict",
-  "Read out of bounds"
+  "Read out of bounds",
+  "Invalid argument"
 };
 
 void btoep_get_error(btoep_dataset* dataset, int* code, const char** message) {
