@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
 
   btoep_dataset dataset;
   if (!btoep_open(&dataset, opts.paths.data_path, opts.paths.index_path, opts.paths.lock_path)) {
-    perror("btoep_open");
+    print_error(&dataset);
     return B_EXIT_CODE_APP_ERROR;
   }
 
@@ -81,15 +81,13 @@ int main(int argc, char** argv) {
   _setmode(fileno(stdout), _O_BINARY);
 #endif
 
-  if (!btoep_index_iterator_start(&dataset) ||
-      !print_index(&dataset, opts.min_range_length.value)) {
-    const char* message;
-    btoep_get_error(&dataset, NULL, &message);
-    fprintf(stderr, "Error: %s\n", message);
-  }
+  bool success = btoep_index_iterator_start(&dataset) &&
+                 print_index(&dataset, opts.min_range_length.value);
 
-  if (!btoep_close(&dataset)) {
-    perror("btoep_close");
+  success = btoep_close(&dataset) && success;
+
+  if (!success) {
+    print_error(&dataset);
     return B_EXIT_CODE_APP_ERROR;
   }
 

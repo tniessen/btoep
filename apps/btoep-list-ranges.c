@@ -101,21 +101,19 @@ int main(int argc, char** argv) {
 
   btoep_dataset dataset;
   if (!btoep_open(&dataset, opts.paths.data_path, opts.paths.index_path, opts.paths.lock_path)) {
-    perror("btoep_open");
+    print_error(&dataset);
     return B_EXIT_CODE_APP_ERROR;
   }
 
   list_fn list_ranges = opts.missing ? list_missing_ranges : list_data_ranges;
 
-  if (!btoep_index_iterator_start(&dataset) ||
-      !list_ranges(&dataset, opts.range_format.value)) {
-    const char* message;
-    btoep_get_error(&dataset, NULL, &message);
-    fprintf(stderr, "Error: %s\n", message);
-  }
+  bool success = btoep_index_iterator_start(&dataset) &&
+                 list_ranges(&dataset, opts.range_format.value);
 
-  if (!btoep_close(&dataset)) {
-    perror("btoep_close");
+  success = btoep_close(&dataset) && success;
+
+  if (!success) {
+    print_error(&dataset);
     return B_EXIT_CODE_APP_ERROR;
   }
 
