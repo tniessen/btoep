@@ -82,5 +82,12 @@ class ReadTest(SystemTest):
     self.assertEqual(self.cmdRead(dataset, offset=1024 * 511), b'\x0a' * 1024)
     self.assertOutOfBounds(dataset, length=1024 * 513)
 
+  def test_fs_error(self):
+    # Test that the command fails if the dataset does not exist.
+    dataset = self.reserveDataset()
+    stderr = self.cmd_stderr(['btoep-read', '--dataset', dataset],
+                             expected_returncode = ExitCode.APP_ERROR)
+    self.assertTrue(stderr.startswith('Error: System input/output error: '))
+
 if __name__ == '__main__':
   unittest.main()

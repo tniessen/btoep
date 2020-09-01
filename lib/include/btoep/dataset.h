@@ -27,6 +27,11 @@
 #define B_ERR_READ_OUT_OF_BOUNDS   6
 #define B_ERR_INVALID_ARGUMENT     7
 
+#define B_OPEN_EXISTING_READ_ONLY   0
+#define B_OPEN_EXISTING_READ_WRITE  1
+#define B_CREATE_NEW_READ_WRITE     2
+#define B_OPEN_OR_CREATE_READ_WRITE 3
+
 #ifdef _MSC_VER
 # define OS_MAX_PATH MAX_PATH
 typedef LPCTSTR btoep_path;
@@ -77,8 +82,8 @@ typedef struct {
  * State management
  */
 
-// TODO: Allow read-only open
-bool btoep_open(btoep_dataset* dataset, btoep_path data_path, btoep_path index_path, btoep_path lock_path);
+bool btoep_open(btoep_dataset* dataset, btoep_path data_path,
+                btoep_path index_path, btoep_path lock_path, int mode);
 
 bool btoep_close(btoep_dataset* dataset);
 

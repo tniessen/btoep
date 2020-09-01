@@ -1,4 +1,4 @@
-from helper import SystemTest
+from helper import ExitCode, SystemTest
 import unittest
 
 class ListRangesTest(SystemTest):
@@ -51,6 +51,13 @@ class ListRangesTest(SystemTest):
     self.assertEqual(ranges, '129..256\n258..385\n')
     ranges = self.cmdListRanges(dataset, True)
     self.assertEqual(ranges, '0..128\n257..257\n386..524287\n')
+
+  def test_fs_error(self):
+    # Test that the command fails if the dataset does not exist.
+    dataset = self.reserveDataset()
+    stderr = self.cmd_stderr(['btoep-list-ranges', '--dataset', dataset],
+                             expected_returncode = ExitCode.APP_ERROR)
+    self.assertTrue(stderr.startswith('Error: System input/output error: '))
 
 if __name__ == '__main__':
   unittest.main()

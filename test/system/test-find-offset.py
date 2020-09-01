@@ -58,5 +58,13 @@ class FindOffsetTest(SystemTest):
     self.assertEqual(self.findOffset(dataset, 385, 'no-data'), 386)
     self.assertEqual(self.findOffset(dataset, 10000, 'no-data'), 10000)
 
+  def test_fs_error(self):
+    # Test that the command fails if the dataset does not exist.
+    dataset = self.reserveDataset()
+    stderr = self.cmd_stderr(['btoep-find-offset', '--dataset', dataset,
+                              '--start-at=0', '--stop-at=data'],
+                             expected_returncode = ExitCode.APP_ERROR)
+    self.assertTrue(stderr.startswith('Error: System input/output error: '))
+
 if __name__ == '__main__':
   unittest.main()

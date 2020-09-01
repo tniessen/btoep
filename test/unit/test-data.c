@@ -17,7 +17,8 @@ static void test_data(void) {
   int error;
 
   // Create the (empty) dataset.
-  assert(btoep_open(&dataset, "test_data", NULL, NULL));
+  assert(btoep_open(&dataset, "test_data", NULL, NULL,
+                    B_CREATE_NEW_READ_WRITE));
 
   // Make sure the index is empty.
   assert(btoep_index_iterator_start(&dataset));
@@ -199,6 +200,12 @@ static void test_data(void) {
   assert(btoep_index_iterator_is_eof(&dataset));
 
   assert(btoep_close(&dataset));
+
+  // Creating the same dataset again should fail.
+  assert(!btoep_open(&dataset, "test_data", NULL, NULL,
+                     B_CREATE_NEW_READ_WRITE));
+  btoep_get_error(&dataset, &error, NULL);
+  assert(error == B_ERR_IO);
 }
 
 TEST_MAIN(test_data)

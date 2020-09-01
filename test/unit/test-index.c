@@ -8,7 +8,8 @@ static void test_index(void) {
   bool b;
 
   // Create the (empty) dataset.
-  assert(btoep_open(&dataset, "test_index", NULL, NULL));
+  assert(btoep_open(&dataset, "test_index", NULL, NULL,
+                    B_CREATE_NEW_READ_WRITE));
 
   // Make sure the index is empty.
   assert(btoep_index_iterator_start(&dataset));

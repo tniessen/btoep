@@ -35,11 +35,26 @@ static inline bool set_io_error(btoep_dataset* dataset) {
   return set_error(dataset, B_ERR_IO, true);
 }
 
-static bool fd_open(btoep_dataset* dataset, btoep_fd* fd, btoep_path path) {
+static bool fd_open(btoep_dataset* dataset, btoep_fd* fd, btoep_path path,
+                    int mode) {
 #ifdef _MSC_VER
-  *fd = CreateFile(path, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+  DWORD dwDesiredAccess = GENERIC_READ;
+  if (mode != B_OPEN_EXISTING_READ_ONLY)
+    dwDesiredAccess |= GENERIC_WRITE;
+  DWORD dwCreationDisposition = OPEN_EXISTING;
+  if (mode == B_CREATE_NEW_READ_WRITE)
+    dwCreationDisposition = CREATE_NEW;
+  else if (mode == B_OPEN_OR_CREATE_READ_WRITE)
+    dwCreationDisposition = OPEN_ALWAYS;
+  *fd = CreateFile(path, dwDesiredAccess, 0, NULL, dwCreationDisposition,
+                   FILE_ATTRIBUTE_NORMAL, NULL);
 #else
-  *fd = open(path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+  int flag = (mode == B_OPEN_EXISTING_READ_ONLY) ? O_RDONLY : O_RDWR;
+  if (mode & (B_CREATE_NEW_READ_WRITE & B_OPEN_OR_CREATE_READ_WRITE))
+    flag |= O_CREAT;
+  if (mode == B_CREATE_NEW_READ_WRITE)
+    flag |= O_EXCL;
+  *fd = open(path, flag, S_IRUSR | S_IWUSR);
 #endif
   if (*fd == INVALID_FILE_FD)
     return set_io_error(dataset);
@@ -175,8 +190,8 @@ static bool btoep_unlock(btoep_dataset* dataset) {
 #endif
 }
 
-// TODO: Allow read-only open
-bool btoep_open(btoep_dataset* dataset, btoep_path data_path, btoep_path index_path, btoep_path lock_path) {
+bool btoep_open(btoep_dataset* dataset, btoep_path data_path,
+                btoep_path index_path, btoep_path lock_path, int mode) {
   if (dataset == NULL || data_path == NULL ||
       !copy_path(dataset->data_path, data_path, NULL, NULL) ||
       !copy_path(dataset->index_path, index_path, data_path, ".idx") ||
@@ -187,12 +202,14 @@ bool btoep_open(btoep_dataset* dataset, btoep_path data_path, btoep_path index_p
   if (!btoep_lock(dataset))
     return false;
 
-  if (!fd_open(dataset, &dataset->data_fd, data_path)) {
+  // TODO: Either both files should be created, or neither.
+
+  if (!fd_open(dataset, &dataset->data_fd, data_path, mode)) {
     btoep_unlock(dataset); // TODO: Return value
     return false;
   }
 
-  if (!fd_open(dataset, &dataset->index_fd, dataset->index_path)) {
+  if (!fd_open(dataset, &dataset->index_fd, dataset->index_path, mode)) {
     fd_close(dataset, dataset->data_fd); // TODO: Return value
     btoep_unlock(dataset); // TODO: Return value
     return false;

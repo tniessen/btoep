@@ -1,4 +1,4 @@
-from helper import SystemTest
+from helper import ExitCode, SystemTest
 import unittest
 
 class GetIndexTest(SystemTest):
@@ -67,6 +67,13 @@ class GetIndexTest(SystemTest):
     self.assertEqual(index, b'\x0a\x0a' * 20)
     index = self.cmdGetIndex(dataset, min_range_length=12)
     self.assertEqual(index, b'')
+
+  def test_fs_error(self):
+    # Test that the command fails if the dataset does not exist.
+    dataset = self.reserveDataset()
+    stderr = self.cmd_stderr(['btoep-get-index', '--dataset', dataset],
+                             expected_returncode = ExitCode.APP_ERROR)
+    self.assertTrue(stderr.startswith('Error: System input/output error: '))
 
 if __name__ == '__main__':
   unittest.main()

@@ -73,6 +73,10 @@ class SystemTest(unittest.TestCase):
     result = self.cmd(args, expected_stdout=None, **kwargs)
     return (tostring(result.stdout) if text else result.stdout)
 
+  def cmd_stderr(self, args, text=True, **kwargs):
+    result = self.cmd(args, expected_stderr=None, **kwargs)
+    return (tostring(result.stderr) if text else result.stderr)
+
   def assertInfo(self, cmd, options):
     version = self.cmd_stdout([cmd, '--version'], text=True)
     self.assertTrue(version.startswith(cmd + ' '))
