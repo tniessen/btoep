@@ -62,7 +62,7 @@ class SystemTest(unittest.TestCase):
           expected_stderr=b'',
           **kwargs):
     result = subprocess.run(args, capture_output=True, timeout=10, **kwargs)
-    self.assertEqual(result.returncode, expected_returncode.value)
+    self.assertEqual(ExitCode(result.returncode), expected_returncode)
     if expected_stdout is not None:
       self.assertOutputIsEqual(result.stdout, expected_stdout)
     if expected_stderr is not None:
