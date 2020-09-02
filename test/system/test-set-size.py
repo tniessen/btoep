@@ -23,8 +23,6 @@ class SetSizeTest(SystemTest):
              expected_stderr = 'Error: Destructive action\n')
 
   def test_set_size(self):
-    all_data = ((b'\xaa' * 256) + (b'\xbb' * 256) + (b'\xcc' * 256)) * 3
-
     # Create a new dataset.
     dataset = self.reserveDataset()
     self.assertSetSize(dataset, 10001)
