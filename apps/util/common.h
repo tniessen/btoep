@@ -17,8 +17,13 @@
 static inline void print_system_error(DWORD error_code) {
   LPTSTR message;
   // TODO: Check return value
-  FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER, NULL, error_code, 0, (LPTSTR) &message, 0, NULL);
-  fprintf(stderr, "%s (code %u)\n", message, error_code);
+  FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM |
+                FORMAT_MESSAGE_ALLOCATE_BUFFER |
+                FORMAT_MESSAGE_IGNORE_INSERTS,
+                NULL, error_code, 0, (LPTSTR) &message, 0, NULL);
+  // Remove trailing newline characters.
+  message[strcspn(message, "\r\n\0")] = 0;
+  fprintf(stderr, "%s (code %d)\n", message, error_code);
 }
 #else
 static inline void print_system_error(int error_code) {
