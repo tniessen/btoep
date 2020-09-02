@@ -1,0 +1,13 @@
+Usage: btoep-create [options]
+Creates a new dataset. Fails if the dataset already exists.
+
+Options:
+--help                     Display this information.
+--version                  Display the version of this tool.
+--dataset=<name>           Name (or path) of the dataset.
+--index-path=<path>        Use this index file instead of the default one.
+--lockfile-path=<path>     Use this lock file instead of the default one. This
+                           is dangerous.
+--size=<size>              While creating the dataset, set its size to this
+                           value. If not specified, the dataset will initially
+                           have a size of zero.
