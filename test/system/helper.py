@@ -36,19 +36,27 @@ class SystemTest(unittest.TestCase):
 
   def createDataset(self, data, index_data):
     path = self.reserveDataset()
-    with open(path, 'wb') as dataset:
-      dataset.write(data)
-    with open(path + '.idx', 'wb') as index:
-      index.write(index_data)
+    if data is not None:
+      with open(path, 'wb') as dataset:
+        dataset.write(data)
+    if index_data is not None:
+      with open(path + '.idx', 'wb') as index:
+        index.write(index_data)
     return path
 
   def readDataset(self, path):
-    with open(path, 'rb') as dataset:
-      return dataset.read()
+    try:
+      with open(path, 'rb') as dataset:
+        return dataset.read()
+    except FileNotFoundError:
+      return None
 
   def readIndex(self, path):
-    with open(path + '.idx', 'rb') as dataset:
-      return dataset.read()
+    try:
+      with open(path + '.idx', 'rb') as dataset:
+        return dataset.read()
+    except FileNotFoundError:
+      return None
 
   def assertOutputIsEqual(self, actual, expected):
     if isinstance(expected, str):

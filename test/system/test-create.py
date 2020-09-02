@@ -33,5 +33,27 @@ class CreateTest(SystemTest):
                              expected_returncode = ExitCode.APP_ERROR)
     self.assertTrue(stderr.startswith('Error: System input/output error: '))
 
+    # Test that the command fails if the data file exists.
+    dataset = self.createDataset(b'foo', None)
+    stderr = self.cmd_stderr(['btoep-create', '--dataset', dataset],
+                             expected_returncode = ExitCode.APP_ERROR)
+    self.assertTrue(stderr.startswith('Error: System input/output error: '))
+
+    # This should not have modified the existing data file, or created the index
+    # file.
+    self.assertEqual(self.readDataset(dataset), b'foo')
+    self.assertIsNone(self.readIndex(dataset))
+
+    # Test that the command fails if the index file exists.
+    dataset = self.createDataset(None, b'bar')
+    stderr = self.cmd_stderr(['btoep-create', '--dataset', dataset],
+                             expected_returncode = ExitCode.APP_ERROR)
+    self.assertTrue(stderr.startswith('Error: System input/output error: '))
+
+    # This should not have created the data file, or modified the existing index
+    # file.
+    self.assertIsNone(self.readDataset(dataset))
+    self.assertEqual(self.readIndex(dataset), b'bar')
+
 if __name__ == '__main__':
   unittest.main()

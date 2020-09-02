@@ -37,6 +37,7 @@ static inline bool set_io_error(btoep_dataset* dataset) {
 
 static bool fd_open(btoep_dataset* dataset, btoep_fd* fd, btoep_path path,
                     int mode) {
+  assert(mode <= B_CREATE_NEW_READ_WRITE);
 #ifdef _MSC_VER
   DWORD dwDesiredAccess = GENERIC_READ;
   if (mode != B_OPEN_EXISTING_READ_ONLY)
@@ -44,21 +45,40 @@ static bool fd_open(btoep_dataset* dataset, btoep_fd* fd, btoep_path path,
   DWORD dwCreationDisposition = OPEN_EXISTING;
   if (mode == B_CREATE_NEW_READ_WRITE)
     dwCreationDisposition = CREATE_NEW;
-  else if (mode == B_OPEN_OR_CREATE_READ_WRITE)
-    dwCreationDisposition = OPEN_ALWAYS;
   *fd = CreateFile(path, dwDesiredAccess, 0, NULL, dwCreationDisposition,
                    FILE_ATTRIBUTE_NORMAL, NULL);
 #else
   int flag = (mode == B_OPEN_EXISTING_READ_ONLY) ? O_RDONLY : O_RDWR;
   if (mode & (B_CREATE_NEW_READ_WRITE & B_OPEN_OR_CREATE_READ_WRITE))
-    flag |= O_CREAT;
-  if (mode == B_CREATE_NEW_READ_WRITE)
-    flag |= O_EXCL;
+    flag |= O_CREAT | O_EXCL;
   *fd = open(path, flag, S_IRUSR | S_IWUSR);
 #endif
   if (*fd == INVALID_FILE_FD)
     return set_io_error(dataset);
   return true;
+}
+
+static bool fd_open_or_create(btoep_dataset* dataset, btoep_fd* fd, btoep_path path, bool* created) {
+  *created = fd_open(dataset, fd, path, B_CREATE_NEW_READ_WRITE);
+  if (!*created) {
+#ifdef _MSC_VER
+    if (GetLastError() == ERROR_FILE_EXISTS) {
+#else
+    if (errno == EEXIST) {
+#endif
+      // There is an unfortunate, but almost unavoidable race condition here.
+      // We know that the previous call failed since the file already exists, so
+      // now we will attempt to open the existing file. However, if it was
+      // deleted since the previous call, this will fail as well, and we cannot
+      // really recover from that. On the other hand, we also cannot add O_CREAT
+      // or the equivalent on Windows in the second attempt, since that would
+      // lead to the file being created without our knowledge.
+      // TODO: At least on Windows, it should be possible to avoid the race
+      // condition by using OPEN_ALWAYS and checking the last-error code.
+      return fd_open(dataset, fd, path, B_OPEN_EXISTING_READ_WRITE);
+    }
+  }
+  return *created;
 }
 
 static bool fd_seek(btoep_dataset* dataset, btoep_fd fd, uint64_t offset, int whence, uint64_t* out) {
@@ -190,6 +210,37 @@ static bool btoep_unlock(btoep_dataset* dataset) {
 #endif
 }
 
+static bool open_dataset_fds(btoep_dataset* dataset, int mode) {
+  bool data_file_created;
+
+  if (mode == B_OPEN_OR_CREATE_READ_WRITE) {
+    if (!fd_open_or_create(dataset, &dataset->data_fd, dataset->data_path,
+                           &data_file_created))
+      return false;
+    mode = data_file_created ? B_CREATE_NEW_READ_WRITE :
+                               B_OPEN_EXISTING_READ_WRITE;
+  } else {
+    if (!fd_open(dataset, &dataset->data_fd, dataset->data_path, mode))
+      return false;
+    data_file_created = (mode == B_CREATE_NEW_READ_WRITE);
+  }
+
+  if (fd_open(dataset, &dataset->index_fd, dataset->index_path, mode))
+    return true;
+
+  fd_close(dataset, dataset->data_fd); // TODO: Return value
+  if (data_file_created) {
+    // We created the data file, but failed to create the index file.
+    assert(mode == B_CREATE_NEW_READ_WRITE);
+#ifdef _MSC_VER
+    DeleteFile(dataset->data_path); // TODO: Return value
+#else
+    unlink(dataset->data_path); // TODO: Return value
+#endif
+  }
+  return false;
+}
+
 bool btoep_open(btoep_dataset* dataset, btoep_path data_path,
                 btoep_path index_path, btoep_path lock_path, int mode) {
   if (dataset == NULL || data_path == NULL ||
@@ -202,15 +253,7 @@ bool btoep_open(btoep_dataset* dataset, btoep_path data_path,
   if (!btoep_lock(dataset))
     return false;
 
-  // TODO: Either both files should be created, or neither.
-
-  if (!fd_open(dataset, &dataset->data_fd, data_path, mode)) {
-    btoep_unlock(dataset); // TODO: Return value
-    return false;
-  }
-
-  if (!fd_open(dataset, &dataset->index_fd, dataset->index_path, mode)) {
-    fd_close(dataset, dataset->data_fd); // TODO: Return value
+  if (!open_dataset_fds(dataset, mode)) {
     btoep_unlock(dataset); // TODO: Return value
     return false;
   }

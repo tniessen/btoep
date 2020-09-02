@@ -89,5 +89,28 @@ class AddTest(SystemTest):
     self.assertEqual(self.readDataset(dataset), b'Hello world\r\n')
     self.assertEqual(self.readIndex(dataset), b'\x00\x0c')
 
+  def test_fs_error(self):
+    # Test that the command fails if only the data file is missing
+    dataset = self.createDataset(None, b'foo')
+    stderr = self.cmd_stderr(['btoep-add', '--dataset', dataset, '--offset=0'],
+                             expected_returncode = ExitCode.APP_ERROR)
+    self.assertTrue(stderr.startswith('Error: System input/output error: '))
+
+    # This should not have created the data file, or modified the existing index
+    # file.
+    self.assertIsNone(self.readDataset(dataset))
+    self.assertEqual(self.readIndex(dataset), b'foo')
+
+    # Test that the command fails if only the index file is missing
+    dataset = self.createDataset(b'bar', None)
+    stderr = self.cmd_stderr(['btoep-add', '--dataset', dataset, '--offset=0'],
+                             expected_returncode = ExitCode.APP_ERROR)
+    self.assertTrue(stderr.startswith('Error: System input/output error: '))
+
+    # This should not have modified the existing data file, or created the index
+    # file.
+    self.assertEqual(self.readDataset(dataset), b'bar')
+    self.assertIsNone(self.readIndex(dataset))
+
 if __name__ == '__main__':
   unittest.main()
