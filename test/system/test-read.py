@@ -23,9 +23,11 @@ class ReadTest(SystemTest):
     return self.cmd_stdout(self.getCmdArgs(dataset, **kwargs))
 
   def assertOutOfBounds(self, dataset, **kwargs):
-    self.cmd(self.getCmdArgs(dataset, **kwargs),
-             expected_returncode = ExitCode.APP_ERROR,
-             expected_stderr = 'Error: Read out of bounds\n')
+    self.assertErrorMessage(
+        self.getCmdArgs(dataset, **kwargs),
+        message = 'Read out of bounds',
+        lib_error_name = 'ERR_READ_OUT_OF_BOUNDS',
+        lib_error_code = '6')
 
   def test_read(self):
     # Test an empty dataset with an empty index
@@ -85,9 +87,14 @@ class ReadTest(SystemTest):
   def test_fs_error(self):
     # Test that the command fails if the dataset does not exist.
     dataset = self.reserveDataset()
-    stderr = self.cmd_stderr(['btoep-read', '--dataset', dataset],
-                             expected_returncode = ExitCode.APP_ERROR)
-    self.assertTrue(stderr.startswith('Error: System input/output error: '))
+    self.assertErrorMessage(
+        ['btoep-read', '--dataset', dataset],
+        message = 'System input/output error',
+        has_ext_message = True,
+        lib_error_name = 'ERR_INPUT_OUTPUT',
+        lib_error_code = '1',
+        sys_error_name = 'ERROR_FILE_NOT_FOUND' if self.isWindows else 'ENOENT',
+        sys_error_code = '2')
 
 if __name__ == '__main__':
   unittest.main()

@@ -29,15 +29,25 @@ class CreateTest(SystemTest):
   def test_fs_error(self):
     # Test that the command fails if the dataset already exists.
     dataset = self.createDataset(b'', b'')
-    stderr = self.cmd_stderr(['btoep-create', '--dataset', dataset],
-                             expected_returncode = ExitCode.APP_ERROR)
-    self.assertTrue(stderr.startswith('Error: System input/output error: '))
+    self.assertErrorMessage(
+        ['btoep-create', '--dataset', dataset],
+        message = 'System input/output error',
+        has_ext_message = True,
+        lib_error_name = 'ERR_INPUT_OUTPUT',
+        lib_error_code = '1',
+        sys_error_name = 'ERROR_FILE_EXISTS' if self.isWindows else 'EEXIST',
+        sys_error_code = '80' if self.isWindows else '17')
 
     # Test that the command fails if the data file exists.
     dataset = self.createDataset(b'foo', None)
-    stderr = self.cmd_stderr(['btoep-create', '--dataset', dataset],
-                             expected_returncode = ExitCode.APP_ERROR)
-    self.assertTrue(stderr.startswith('Error: System input/output error: '))
+    self.assertErrorMessage(
+        ['btoep-create', '--dataset', dataset],
+        message = 'System input/output error',
+        has_ext_message = True,
+        lib_error_name = 'ERR_INPUT_OUTPUT',
+        lib_error_code = '1',
+        sys_error_name = 'ERROR_FILE_EXISTS' if self.isWindows else 'EEXIST',
+        sys_error_code = '80' if self.isWindows else '17')
 
     # This should not have modified the existing data file, or created the index
     # file.
@@ -46,9 +56,14 @@ class CreateTest(SystemTest):
 
     # Test that the command fails if the index file exists.
     dataset = self.createDataset(None, b'bar')
-    stderr = self.cmd_stderr(['btoep-create', '--dataset', dataset],
-                             expected_returncode = ExitCode.APP_ERROR)
-    self.assertTrue(stderr.startswith('Error: System input/output error: '))
+    self.assertErrorMessage(
+        ['btoep-create', '--dataset', dataset],
+        message = 'System input/output error',
+        has_ext_message = True,
+        lib_error_name = 'ERR_INPUT_OUTPUT',
+        lib_error_code = '1',
+        sys_error_name = 'ERROR_FILE_EXISTS' if self.isWindows else 'EEXIST',
+        sys_error_code = '80' if self.isWindows else '17')
 
     # This should not have created the data file, or modified the existing index
     # file.

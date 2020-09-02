@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "opt.h"
+#include "res.h"
 
 #define BTOEP_TOOL_VERSION "0.1.0-pre"
 
@@ -14,35 +15,67 @@
 #define B_EXIT_CODE_APP_ERROR    3
 
 #ifdef _MSC_VER
-static inline void print_system_error(DWORD error_code) {
-  LPTSTR message;
+static inline const char* system_strerror(DWORD error_code) {
+  if (error_code == ERROR_SUCCESS)
+    return NULL;
+
+  static char message[1024];
   // TODO: Check return value
-  FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM |
-                FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                FORMAT_MESSAGE_IGNORE_INSERTS,
-                NULL, error_code, 0, (LPTSTR) &message, 0, NULL);
+  FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                NULL, error_code, 0, message, 1024, NULL);
   // Remove trailing newline characters.
   message[strcspn(message, "\r\n\0")] = 0;
-  fprintf(stderr, "%s (code %d)\n", message, error_code);
+  return message;
 }
 #else
-static inline void print_system_error(int error_code) {
-  const char* message = strerror(error_code);
-  fprintf(stderr, "%s (code %d)\n", message, error_code);
+static inline const char* system_strerror(int error_code) {
+  return (error_code == 0) ? NULL : strerror(error_code);
 }
 #endif
 
-static inline void print_error(btoep_dataset* dataset) {
-  int error;
-  const char* message;
-  btoep_get_error(dataset, &error, &message);
+static inline void print_error_message_line(const char* msg, const char* ext_msg) {
+  fprintf(stderr, "Error: %s", msg);
+  if (ext_msg != NULL)
+    fprintf(stderr, ": %s", ext_msg);
+  fputs("\n\n", stderr);
+}
 
-  if (error == B_ERR_IO) {
-    fprintf(stderr, "Error: %s: ", message);
-    // TODO: Improve the dataset API to make this prettier/easier
-    print_system_error(dataset->last_system_error);
-  } else {
-    fprintf(stderr, "Error: %s\n", message);
+static inline void print_system_error_details(const char* name, int code, const char* func) {
+  if (name != NULL)
+    fprintf(stderr, "System error name: %s\n", name);
+  fprintf(stderr, "System error code: %d\n", code);
+  fprintf(stderr, "System function: %s\n", func);
+}
+
+static inline void print_errno_details(int error_code, const char* func) {
+  const char* name = get_errno_error_name(error_code);
+  print_system_error_details(name, error_code, func);
+}
+
+static inline void print_stdlib_error(int error_code, const char* func) {
+  print_error_message_line(strerror(error_code), NULL);
+  print_errno_details(error_code, func);
+}
+
+static inline void print_lib_error(btoep_dataset* dataset) {
+  btoep_last_error_info info;
+  btoep_last_error(dataset, &info);
+
+  const char* msg = btoep_strerror(info.code);
+  const char* ext_msg = system_strerror(info.system_error_code);
+  print_error_message_line(msg, ext_msg);
+
+  fprintf(stderr, "Library error name: %s\n", btoep_strerror_name(info.code));
+  fprintf(stderr, "Library error code: %d\n", info.code);
+
+  if (info.system_error_code != 0) {
+    const char* name;
+#ifdef _MSC_VER
+    name = get_windows_error_name(info.system_error_code);
+#else
+    name = get_errno_error_name(info.system_error_code);
+#endif
+    print_system_error_details(name, info.system_error_code, info.system_func);
   }
 }
 

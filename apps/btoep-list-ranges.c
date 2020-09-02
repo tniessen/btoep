@@ -4,7 +4,6 @@
 #include <stdio.h>
 
 #include "util/common.h"
-#include "util/res.h"
 
 typedef void (*print_range_fn)(btoep_range range);
 typedef bool (*list_fn)(btoep_dataset* dataset, print_range_fn print_range);
@@ -102,7 +101,7 @@ int main(int argc, char** argv) {
   btoep_dataset dataset;
   if (!btoep_open(&dataset, opts.paths.data_path, opts.paths.index_path,
                   opts.paths.lock_path, B_OPEN_EXISTING_READ_ONLY)) {
-    print_error(&dataset);
+    print_lib_error(&dataset);
     return B_EXIT_CODE_APP_ERROR;
   }
 
@@ -114,7 +113,7 @@ int main(int argc, char** argv) {
   success = btoep_close(&dataset) && success;
 
   if (!success) {
-    print_error(&dataset);
+    print_lib_error(&dataset);
     return B_EXIT_CODE_APP_ERROR;
   }
 

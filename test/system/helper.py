@@ -1,6 +1,8 @@
 import enum
 import io
 import os
+import platform
+import re
 import shutil
 import subprocess
 import tempfile
@@ -20,6 +22,7 @@ class SystemTest(unittest.TestCase):
   def setUp(self):
     self.dir = tempfile.mkdtemp()
     self.n_datasets = 0
+    self.isWindows = platform.system() == 'Windows'
 
   def tearDown(self):
     shutil.rmtree(self.dir)
@@ -33,6 +36,9 @@ class SystemTest(unittest.TestCase):
     with tempfile.NamedTemporaryFile(delete=False, dir=self.dir) as file:
       file.write(data)
       return file.name
+
+  def createTempTestDir(self):
+    return tempfile.mkdtemp(dir = self.dir)
 
   def createDataset(self, data, index_data):
     path = self.reserveDataset()
@@ -84,6 +90,28 @@ class SystemTest(unittest.TestCase):
   def cmd_stderr(self, args, text=True, **kwargs):
     result = self.cmd(args, expected_stderr=None, **kwargs)
     return (tostring(result.stderr) if text else result.stderr)
+
+  def assertErrorMessage(self, args,
+                         message, has_ext_message=False,
+                         lib_error_name=None, lib_error_code=None,
+                         sys_error_name=None, sys_error_code=None,
+                         **kwargs):
+    stderr = self.cmd_stderr(args, expected_returncode = ExitCode.APP_ERROR,
+                             **kwargs)
+    regex = r"^Error: ([^:\n]+)(: ([^:\n]+))?\n\n(([^:\n]+: [^\n]+\n)*)$"
+    match = re.fullmatch(regex, stderr)
+    self.assertIsNotNone(match)
+    if message is not True:
+      self.assertEqual(match.group(1), message)
+    self.assertEqual(match.group(3) is not None, has_ext_message)
+    props = {}
+    for line in match.group(4).splitlines():
+      (key, value) = line.split(': ')
+      props[key] = value
+    self.assertEqual(props.get('Library error name'), lib_error_name)
+    self.assertEqual(props.get('Library error code'), lib_error_code)
+    self.assertEqual(props.get('System error name'), sys_error_name)
+    self.assertEqual(props.get('System error code'), sys_error_code)
 
   def assertInfo(self, cmd, options):
     version = self.cmd_stdout([cmd, '--version'], text=True)

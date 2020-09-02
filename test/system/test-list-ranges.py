@@ -55,9 +55,14 @@ class ListRangesTest(SystemTest):
   def test_fs_error(self):
     # Test that the command fails if the dataset does not exist.
     dataset = self.reserveDataset()
-    stderr = self.cmd_stderr(['btoep-list-ranges', '--dataset', dataset],
-                             expected_returncode = ExitCode.APP_ERROR)
-    self.assertTrue(stderr.startswith('Error: System input/output error: '))
+    self.assertErrorMessage(
+        ['btoep-list-ranges', '--dataset', dataset],
+        message = 'System input/output error',
+        has_ext_message = True,
+        lib_error_name = 'ERR_INPUT_OUTPUT',
+        lib_error_code = '1',
+        sys_error_name = 'ERROR_FILE_NOT_FOUND' if self.isWindows else 'ENOENT',
+        sys_error_code = '2')
 
 if __name__ == '__main__':
   unittest.main()

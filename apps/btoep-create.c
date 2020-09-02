@@ -4,7 +4,6 @@
 #include <string.h>
 
 #include "util/common.h"
-#include "util/res.h"
 
 typedef struct {
   dataset_path_opts paths;
@@ -43,7 +42,7 @@ int main(int argc, char** argv) {
   }
 
   if (!success) {
-    print_error(&dataset);
+    print_lib_error(&dataset);
     return B_EXIT_CODE_APP_ERROR;
   }
 

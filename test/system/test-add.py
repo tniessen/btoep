@@ -45,15 +45,18 @@ class AddTest(SystemTest):
 
     # Adding conflicting data with the default/error behavior should not change
     # existing ranges or the file size, and should not modify the index.
-    self.cmd(['btoep-add', '--dataset', dataset, '--offset=0'],
-             input = conflicting_data,
-             expected_stderr = 'Error: Data conflict\n',
-             expected_returncode = ExitCode.APP_ERROR)
+    self.assertErrorMessage(['btoep-add', '--dataset', dataset, '--offset=0'],
+                            input = conflicting_data,
+                            message = 'Data conflicts with existing data',
+                            lib_error_name = 'ERR_DATA_CONFLICT',
+                            lib_error_code = '5')
 
-    self.cmd(['btoep-add', '--dataset', dataset, '--offset=0', '--on-conflict=error'],
-             input = conflicting_data,
-             expected_stderr = 'Error: Data conflict\n',
-             expected_returncode = ExitCode.APP_ERROR)
+    self.assertErrorMessage(['btoep-add', '--dataset', dataset, '--offset=0',
+                             '--on-conflict=error'],
+                            input = conflicting_data,
+                            message = 'Data conflicts with existing data',
+                            lib_error_name = 'ERR_DATA_CONFLICT',
+                            lib_error_code = '5')
 
     # Ensure dataset and index are unchanged.
     self.assertEqual(self.readDataset(dataset)[256:1280], all_data[256:1280])
@@ -92,9 +95,14 @@ class AddTest(SystemTest):
   def test_fs_error(self):
     # Test that the command fails if only the data file is missing
     dataset = self.createDataset(None, b'foo')
-    stderr = self.cmd_stderr(['btoep-add', '--dataset', dataset, '--offset=0'],
-                             expected_returncode = ExitCode.APP_ERROR)
-    self.assertTrue(stderr.startswith('Error: System input/output error: '))
+    self.assertErrorMessage(
+        ['btoep-add', '--dataset', dataset, '--offset=0'],
+        message = 'System input/output error',
+        has_ext_message = True,
+        lib_error_name = 'ERR_INPUT_OUTPUT',
+        lib_error_code = '1',
+        sys_error_name = 'ERROR_FILE_EXISTS' if self.isWindows else 'EEXIST',
+        sys_error_code = '80' if self.isWindows else '17')
 
     # This should not have created the data file, or modified the existing index
     # file.
@@ -103,13 +111,41 @@ class AddTest(SystemTest):
 
     # Test that the command fails if only the index file is missing
     dataset = self.createDataset(b'bar', None)
-    stderr = self.cmd_stderr(['btoep-add', '--dataset', dataset, '--offset=0'],
-                             expected_returncode = ExitCode.APP_ERROR)
-    self.assertTrue(stderr.startswith('Error: System input/output error: '))
+    self.assertErrorMessage(
+        ['btoep-add', '--dataset', dataset, '--offset=0'],
+        message = 'System input/output error',
+        has_ext_message = True,
+        lib_error_name = 'ERR_INPUT_OUTPUT',
+        lib_error_code = '1',
+        sys_error_name = 'ERROR_FILE_NOT_FOUND' if self.isWindows else 'ENOENT',
+        sys_error_code = '2')
 
     # This should not have modified the existing data file, or created the index
     # file.
     self.assertEqual(self.readDataset(dataset), b'bar')
+    self.assertIsNone(self.readIndex(dataset))
+
+  def test_invalid_source(self):
+    # Test --source with a directory.
+    empty_dir = self.createTempTestDir()
+    dataset = self.reserveDataset()
+    self.assertErrorMessage(
+        ['btoep-add', '--dataset', dataset, '--offset=0',
+         '--source', empty_dir],
+        message = True,
+        sys_error_name = 'EACCES' if self.isWindows else 'EISDIR',
+        sys_error_code = '13' if self.isWindows else '21')
+
+    # Test --source with a file that does not exist.
+    not_a_file = empty_dir + '/foo'
+    dataset = self.reserveDataset()
+    self.assertErrorMessage(
+        ['btoep-add', '--dataset', dataset, '--offset=0',
+         '--source', not_a_file],
+        message = True,
+        sys_error_name = 'ENOENT',
+        sys_error_code = '2')
+    self.assertIsNone(self.readDataset(dataset))
     self.assertIsNone(self.readIndex(dataset))
 
 if __name__ == '__main__':

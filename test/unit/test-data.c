@@ -1,6 +1,7 @@
 #include "test.h"
 
 #include <btoep/dataset.h>
+#include <errno.h>
 #include <string.h>
 
 static inline bool memeqb(const uint8_t* ptr, uint8_t value, size_t n) {
@@ -14,7 +15,7 @@ static void test_data(void) {
   btoep_range range;
   uint8_t buffer[64 * 1024];
   uint64_t data_size;
-  int error;
+  btoep_last_error_info error;
 
   // Create the (empty) dataset.
   assert(btoep_open(&dataset, "test_data", NULL, NULL,
@@ -69,8 +70,8 @@ static void test_data(void) {
 
   // Attempting to shrink it should fail.
   assert(!btoep_data_set_size(&dataset, 8191, false));
-  btoep_get_error(&dataset, &error, NULL);
-  assert(error == B_ERR_DESTRUCTIVE_ACTION);
+  btoep_last_error(&dataset, &error);
+  assert(error.code == B_ERR_DESTRUCTIVE_ACTION);
 
   // But enlarging it should work.
   assert(btoep_data_set_size(&dataset, 16384, false));
@@ -97,8 +98,8 @@ static void test_data(void) {
 
   // Shrinking further via a destructive action should also work.
   assert(!btoep_data_set_size(&dataset, 9728, false));
-  btoep_get_error(&dataset, &error, NULL);
-  assert(error == B_ERR_DESTRUCTIVE_ACTION);
+  btoep_last_error(&dataset, &error);
+  assert(error.code == B_ERR_DESTRUCTIVE_ACTION);
   assert(btoep_data_set_size(&dataset, 9728, true));
   assert(btoep_data_get_size(&dataset, &data_size));
   assert(data_size == 9728);
@@ -117,8 +118,8 @@ static void test_data(void) {
   range = btoep_mkrange(1000, 3000);
   memset(buffer, 0x01, range.length);
   assert(!btoep_data_add_range(&dataset, range, buffer, BTOEP_CONFLICT_ERROR));
-  btoep_get_error(&dataset, &error, NULL);
-  assert(error == B_ERR_DATA_CONFLICT);
+  btoep_last_error(&dataset, &error);
+  assert(error.code == B_ERR_DATA_CONFLICT);
 
   // This should not have updated the index.
   assert(btoep_index_iterator_start(&dataset));
@@ -155,8 +156,8 @@ static void test_data(void) {
   // Reading out of bounds should fail.
   range = btoep_mkrange(0, 2048);
   assert(!btoep_data_read_range(&dataset, range, buffer, NULL));
-  btoep_get_error(&dataset, &error, NULL);
-  assert(error == B_ERR_READ_OUT_OF_BOUNDS);
+  btoep_last_error(&dataset, &error);
+  assert(error.code == B_ERR_READ_OUT_OF_BOUNDS);
 
   // Reading an empty range should succeed as long as the offset is within the
   // file.
@@ -172,8 +173,8 @@ static void test_data(void) {
   // But reading an empty range outside of the file should still fail.
   range = btoep_mkrange(9729, 0);
   assert(!btoep_data_read_range(&dataset, range, buffer, NULL));
-  btoep_get_error(&dataset, &error, NULL);
-  assert(error == B_ERR_READ_OUT_OF_BOUNDS);
+  btoep_last_error(&dataset, &error);
+  assert(error.code == B_ERR_READ_OUT_OF_BOUNDS);
 
   //    0..1023 do not exist.
   // 1024..1535 are set to 0xff.
@@ -204,8 +205,13 @@ static void test_data(void) {
   // Creating the same dataset again should fail.
   assert(!btoep_open(&dataset, "test_data", NULL, NULL,
                      B_CREATE_NEW_READ_WRITE));
-  btoep_get_error(&dataset, &error, NULL);
-  assert(error == B_ERR_IO);
+  btoep_last_error(&dataset, &error);
+  assert(error.code == B_ERR_INPUT_OUTPUT);
+#ifdef _MSC_VER
+  assert(error.system_error_code == ERROR_FILE_EXISTS);
+#else
+  assert(error.system_error_code == EEXIST);
+#endif
 }
 
 TEST_MAIN(test_data)

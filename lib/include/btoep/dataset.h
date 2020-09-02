@@ -19,7 +19,7 @@
 
 #define BTOEP_INDEX_CACHE_SIZE 65536 // 64 KiB
 
-#define B_ERR_IO                   1
+#define B_ERR_INPUT_OUTPUT         1
 #define B_ERR_DATASET_LOCKED       2
 #define B_ERR_DESTRUCTIVE_ACTION   3
 #define B_ERR_INVALID_INDEX_FORMAT 4
@@ -37,12 +37,21 @@
 typedef LPCTSTR btoep_path;
 typedef TCHAR btoep_path_buffer[MAX_PATH];
 typedef HANDLE btoep_fd;
+typedef DWORD btoep_syserrno;
 #else
 # define OS_MAX_PATH PATH_MAX
 typedef const char* btoep_path;
 typedef char btoep_path_buffer[PATH_MAX];
 typedef int btoep_fd;
+typedef int btoep_syserrno;
 #endif
+
+typedef struct {
+  int code;
+  const char* func;
+  btoep_syserrno system_error_code;
+  const char* system_func;
+} btoep_last_error_info;
 
 typedef struct {
   // Configurable paths.
@@ -55,12 +64,7 @@ typedef struct {
   btoep_fd index_fd;
 
   // Error information.
-  int last_error;
-#ifdef _MSC_VER
-  DWORD last_system_error;
-#else
-  int last_system_error;
-#endif
+  btoep_last_error_info last_error;
 
   // Index file size and fd position within the index file.
   uint64_t current_index_offset;
@@ -87,7 +91,11 @@ bool btoep_open(btoep_dataset* dataset, btoep_path data_path,
 
 bool btoep_close(btoep_dataset* dataset);
 
-void btoep_get_error(btoep_dataset* dataset, int* code, const char** message);
+void btoep_last_error(btoep_dataset* dataset, btoep_last_error_info* info);
+
+const char* btoep_strerror(int error_code);
+
+const char* btoep_strerror_name(int error_code);
 
 /*
  * Data API

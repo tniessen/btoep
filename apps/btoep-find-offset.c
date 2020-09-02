@@ -4,7 +4,6 @@
 #include <stdio.h>
 
 #include "util/common.h"
-#include "util/res.h"
 
 typedef struct {
   dataset_path_opts paths;
@@ -47,7 +46,7 @@ int main(int argc, char** argv) {
   btoep_dataset dataset;
   if (!btoep_open(&dataset, opts.paths.data_path, opts.paths.index_path,
                   opts.paths.lock_path, B_OPEN_EXISTING_READ_ONLY)) {
-    print_error(&dataset);
+    print_lib_error(&dataset);
     return B_EXIT_CODE_APP_ERROR;
   }
 
@@ -61,7 +60,7 @@ int main(int argc, char** argv) {
   success = btoep_close(&dataset) && success;
 
   if (!success) {
-    print_error(&dataset);
+    print_lib_error(&dataset);
     return B_EXIT_CODE_APP_ERROR;
   }
 

@@ -18,9 +18,11 @@ class SetSizeTest(SystemTest):
     self.assertEqual(size, os.path.getsize(dataset))
 
   def assertFailDestructive(self, dataset, size):
-    self.cmd(['btoep-set-size', '--dataset', dataset, '--size', str(size)],
-             expected_returncode = ExitCode.APP_ERROR,
-             expected_stderr = 'Error: Destructive action\n')
+    self.assertErrorMessage(
+        ['btoep-set-size', '--dataset', dataset, '--size', str(size)],
+        message = 'Action would destroy information',
+        lib_error_name = 'ERR_DESTRUCTIVE_ACTION',
+        lib_error_code = '3')
 
   def test_set_size(self):
     # Create a new dataset.

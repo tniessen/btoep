@@ -4,7 +4,6 @@
 #include <string.h>
 
 #include "util/common.h"
-#include "util/res.h"
 
 typedef struct {
   dataset_path_opts paths;
@@ -53,7 +52,7 @@ int main(int argc, char** argv) {
   if (opts.source_path != NULL && strcmp(opts.source_path, "-") != 0) {
     source = fopen(opts.source_path, "rb");
     if (source == NULL) {
-      perror("fopen");
+      print_stdlib_error(errno, "fopen");
       return B_EXIT_CODE_APP_ERROR;
     }
   }
@@ -61,7 +60,7 @@ int main(int argc, char** argv) {
   btoep_dataset dataset;
   if (!btoep_open(&dataset, opts.paths.data_path, opts.paths.index_path,
                   opts.paths.lock_path, B_OPEN_OR_CREATE_READ_WRITE)) {
-    print_error(&dataset);
+    print_lib_error(&dataset);
     return B_EXIT_CODE_APP_ERROR;
   }
 
@@ -76,7 +75,7 @@ int main(int argc, char** argv) {
   while (!feof(source)) {
     size_t n_read = fread(buffer, 1, sizeof(buffer), source);
     if (n_read < sizeof(buffer) && ferror(source)) {
-      perror("fread");
+      print_stdlib_error(errno, "fread");
       source_ok = false;
       break;
     }
@@ -101,7 +100,7 @@ int main(int argc, char** argv) {
 
   btoep_ok = btoep_close(&dataset) && btoep_ok;
   if (!btoep_ok)
-    print_error(&dataset);
+    print_lib_error(&dataset);
 
   return (btoep_ok && source_ok) ? B_EXIT_CODE_SUCCESS : B_EXIT_CODE_APP_ERROR;
 }
