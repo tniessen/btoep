@@ -33,12 +33,14 @@ int main(int argc, char** argv) {
                             opts.paths.index_path, opts.paths.lock_path,
                             B_CREATE_NEW_READ_WRITE);
 
-  if (success && opts.size.set_by_user)
-    success = btoep_data_set_size(&dataset, opts.size.value, false);
+  if (success) {
+    if (opts.size.set_by_user)
+      success = btoep_data_set_size(&dataset, opts.size.value, false);
 
-  // The order is important here. Even if the previous call failed, the dataset
-  // should still be closed.
-  success = btoep_close(&dataset) && success;
+    // The order is important here. Even if the previous call failed, the dataset
+    // should still be closed.
+    success = btoep_close(&dataset) && success;
+  }
 
   if (!success) {
     print_error(&dataset);
