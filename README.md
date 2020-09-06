@@ -11,6 +11,7 @@ Each tool provides detailed information if `--help` is added to the command
 line.
 
 - **btoep-add** adds data to a new or existing dataset.
+- **btoep-create** creates a new dataset.
 - **btoep-find-offset** locates existing or missing data within a dataset.
 - **btoep-get-index** allows compacting the index file for transmission.
 - **btoep-list-ranges** lists existing or missing sections within a dataset.
