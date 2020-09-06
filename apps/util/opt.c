@@ -86,7 +86,7 @@ bool opt_accept_uint64_once(void* out, const char* value) {
   char* endptr;
   result->value = strtoull(value, &endptr, 10);
   result->set_by_user = true;
-  return *endptr == 0;
+  return endptr != value && *endptr == 0;
 }
 
 bool opt_accept_bool_flag_once(void* out, const char* value) {
