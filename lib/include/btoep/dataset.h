@@ -107,7 +107,7 @@ const char* btoep_strerror_name(int error_code);
 
 bool btoep_data_add_range(btoep_dataset* dataset, btoep_range range, const void* data, int conflict_mode);
 
-bool btoep_data_write(btoep_dataset* dataset, btoep_range range, const void* data, int conflict_mode);
+bool btoep_data_write(btoep_dataset* dataset, btoep_range range, const void* data, size_t data_size, int conflict_mode);
 
 /*
  * Reads a range of data. The given range must be a subset of an existing range.

@@ -334,13 +334,16 @@ const char* btoep_strerror_name(int error_code) {
 }
 
 bool btoep_data_add_range(btoep_dataset* dataset, btoep_range range, const void* data, int conflict_mode) {
-  return btoep_data_write(dataset, range, data, conflict_mode) &&
+  return btoep_data_write(dataset, range, data, range.length, conflict_mode) &&
          btoep_index_add(dataset, range);
 }
 
-bool btoep_data_write(btoep_dataset* dataset, btoep_range range, const void* data, int conflict_mode) {
+bool btoep_data_write(btoep_dataset* dataset, btoep_range range, const void* data, size_t data_size, int conflict_mode) {
   if (!btoep_index_iterator_start(dataset))
     return false;
+
+  if (data_size < range.length)
+    range.length = data_size;
 
   btoep_range entry;
 

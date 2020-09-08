@@ -83,7 +83,7 @@ int main(int argc, char** argv) {
     // We intentionally do not use btoep_data_add_range here to avoid modifying
     // the index until all data has been written successfully.
     btoep_range new_range = btoep_mkrange(added_range.offset + added_range.length, n_read);
-    if (!btoep_data_write(&dataset, new_range, buffer, opts.on_conflict.value)) {
+    if (!btoep_data_write(&dataset, new_range, buffer, n_read, opts.on_conflict.value)) {
       btoep_ok = false;
       break;
     }
