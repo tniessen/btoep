@@ -2,6 +2,11 @@
 
 #include <btoep/range.h>
 
+static void test_max_range_from(void) {
+  btoep_range a = btoep_max_range_from(1000);
+  assert(a.offset == 1000 && a.length == 18446744073709550615llu);
+}
+
 static void test_union(void) {
   btoep_range a, b;
 
@@ -277,6 +282,7 @@ static void test_remove_left(void) {
 }
 
 static void test_range(void) {
+  test_max_range_from();
   test_union();
   test_outer();
   test_intersect();

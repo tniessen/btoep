@@ -446,10 +446,8 @@ bool btoep_data_get_size(btoep_dataset* dataset, uint64_t* size) {
   return fd_seek(dataset, dataset->data_fd, 0, SEEK_END, size);
 }
 
-static uint64_t max_u64 = (uint64_t) -1;
-
 bool btoep_data_set_size(btoep_dataset* dataset, uint64_t size, bool allow_destructive) {
-  btoep_range relevant_range = { size, max_u64 - size };
+  btoep_range relevant_range = btoep_max_range_from(size);
 
   if (allow_destructive) {
     // This might not actually remove anything from the index, in which case the

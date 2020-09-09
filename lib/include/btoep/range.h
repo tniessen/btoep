@@ -25,6 +25,10 @@ static inline btoep_range btoep_mkrange(uint64_t offset, uint64_t length) {
   return range;
 }
 
+static inline btoep_range btoep_max_range_from(uint64_t offset) {
+  return btoep_mkrange(offset, ((uint64_t) -1) - offset);
+}
+
 /*
  * For ranges A and B, calculate the union of A and B. This fails if A and B
  * are neither adjacent nor overlapping.
