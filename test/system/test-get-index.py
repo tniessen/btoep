@@ -4,13 +4,13 @@ import unittest
 class GetIndexTest(SystemTest):
 
   def test_info(self):
-    self.assertInfo('btoep-get-index', [
+    self.assertInfo([
       '--dataset', '--index-path', '--lockfile-path',
       '--min-range-length'
     ])
 
   def cmdGetIndex(self, dataset, min_range_length=None):
-    args = ['btoep-get-index', '--dataset', dataset]
+    args = ['--dataset', dataset]
     if min_range_length is not None:
       args.append('--min-range-length=' + str(min_range_length))
     return self.cmd_stdout(args)
@@ -72,7 +72,7 @@ class GetIndexTest(SystemTest):
     # Test that the command fails if the dataset does not exist.
     dataset = self.reserveDataset()
     self.assertErrorMessage(
-        ['btoep-get-index', '--dataset', dataset],
+        ['--dataset', dataset],
         message = 'System input/output error',
         has_ext_message = True,
         lib_error_name = 'ERR_INPUT_OUTPUT',

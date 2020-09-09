@@ -5,15 +5,15 @@ import unittest
 class CreateTest(SystemTest):
 
   def test_info(self):
-    self.assertInfo('btoep-create', [
+    self.assertInfo([
       '--dataset', '--index-path', '--lockfile-path',
       '--size'
     ])
 
   def assertCreate(self, dataset, size = None):
-    args = ['btoep-create', '--dataset', dataset]
+    args = ['--dataset', dataset]
     if size is not None:
-      args.append('--size=' + str(size))
+      args += ['--size', str(size)]
     self.cmd(args)
     effective_size = 0 if size is None else size
     self.assertEqual(effective_size, os.path.getsize(dataset))
@@ -30,7 +30,7 @@ class CreateTest(SystemTest):
     # Test that the command fails if the dataset already exists.
     dataset = self.createDataset(b'', b'')
     self.assertErrorMessage(
-        ['btoep-create', '--dataset', dataset],
+        ['--dataset', dataset],
         message = 'System input/output error',
         has_ext_message = True,
         lib_error_name = 'ERR_INPUT_OUTPUT',
@@ -41,7 +41,7 @@ class CreateTest(SystemTest):
     # Test that the command fails if the data file exists.
     dataset = self.createDataset(b'foo', None)
     self.assertErrorMessage(
-        ['btoep-create', '--dataset', dataset],
+        ['--dataset', dataset],
         message = 'System input/output error',
         has_ext_message = True,
         lib_error_name = 'ERR_INPUT_OUTPUT',
@@ -57,7 +57,7 @@ class CreateTest(SystemTest):
     # Test that the command fails if the index file exists.
     dataset = self.createDataset(None, b'bar')
     self.assertErrorMessage(
-        ['btoep-create', '--dataset', dataset],
+        ['--dataset', dataset],
         message = 'System input/output error',
         has_ext_message = True,
         lib_error_name = 'ERR_INPUT_OUTPUT',

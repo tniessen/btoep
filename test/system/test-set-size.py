@@ -5,13 +5,13 @@ import unittest
 class SetSizeTest(SystemTest):
 
   def test_info(self):
-    self.assertInfo('btoep-set-size', [
+    self.assertInfo([
       '--dataset', '--index-path', '--lockfile-path',
       '--size', '--force'
     ])
 
   def assertSetSize(self, dataset, size, force = False):
-    args = ['btoep-set-size', '--dataset', dataset, '--size', str(size)]
+    args = ['--dataset', dataset, '--size', str(size)]
     if force:
       args.append('--force')
     self.cmd(args)
@@ -19,7 +19,7 @@ class SetSizeTest(SystemTest):
 
   def assertFailDestructive(self, dataset, size):
     self.assertErrorMessage(
-        ['btoep-set-size', '--dataset', dataset, '--size', str(size)],
+        ['--dataset', dataset, '--size', str(size)],
         message = 'Action would destroy information',
         lib_error_name = 'ERR_DESTRUCTIVE_ACTION',
         lib_error_code = '3')

@@ -4,13 +4,13 @@ import unittest
 class ReadTest(SystemTest):
 
   def test_info(self):
-    self.assertInfo('btoep-read', [
+    self.assertInfo([
       '--dataset', '--index-path', '--lockfile-path',
       '--offset', '--length', '--limit'
     ])
 
   def getCmdArgs(self, dataset, offset=None, length=None, limit=None):
-    args = ['btoep-read', '--dataset', dataset]
+    args = ['--dataset', dataset]
     if offset is not None:
       args.append('--offset=' + str(offset))
     if length is not None:
@@ -88,7 +88,7 @@ class ReadTest(SystemTest):
     # Test that the command fails if the dataset does not exist.
     dataset = self.reserveDataset()
     self.assertErrorMessage(
-        ['btoep-read', '--dataset', dataset],
+        ['--dataset', dataset],
         message = 'System input/output error',
         has_ext_message = True,
         lib_error_name = 'ERR_INPUT_OUTPUT',

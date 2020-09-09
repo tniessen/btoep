@@ -70,12 +70,18 @@ class SystemTest(unittest.TestCase):
     else:
       self.assertEqual(actual, expected)
 
+  def arg0(self):
+    name = re.sub(r'Test$', '', type(self).__name__)
+    repl = lambda match: '-' + match.group(0).lower()
+    return 'btoep' + re.sub(r'[A-Z]', repl, name)
+
   def cmd(self, args,
           expected_returncode=ExitCode.SUCCESS,
           expected_stdout=b'',
           expected_stderr=b'',
           **kwargs):
-    result = subprocess.run(args, capture_output=True, timeout=10, **kwargs)
+    argv = [self.arg0()] + args
+    result = subprocess.run(argv, capture_output=True, timeout=10, **kwargs)
     self.assertEqual(ExitCode(result.returncode), expected_returncode)
     if expected_stdout is not None:
       self.assertOutputIsEqual(result.stdout, expected_stdout)
@@ -113,12 +119,12 @@ class SystemTest(unittest.TestCase):
     self.assertEqual(props.get('System error name'), sys_error_name)
     self.assertEqual(props.get('System error code'), sys_error_code)
 
-  def assertInfo(self, cmd, options):
-    version = self.cmd_stdout([cmd, '--version'], text=True)
-    self.assertTrue(version.startswith(cmd + ' '))
+  def assertInfo(self, options):
+    version = self.cmd_stdout(['--version'], text=True)
+    self.assertTrue(version.startswith(self.arg0() + ' '))
 
-    help = self.cmd_stdout([cmd, '--help'], text=True)
-    self.assertTrue(help.startswith('Usage: ' + cmd + ' [options]\n'))
+    help = self.cmd_stdout(['--help'], text=True)
+    self.assertTrue(help.startswith('Usage: ' + self.arg0() + ' [options]\n'))
     for option in options + ['--version', '--help']:
       self.assertIn('\n' + option, help)
     # By convention, the information should not exceed 80 columns.

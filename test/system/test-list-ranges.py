@@ -4,13 +4,13 @@ import unittest
 class ListRangesTest(SystemTest):
 
   def test_info(self):
-    self.assertInfo('btoep-list-ranges', [
+    self.assertInfo([
       '--dataset', '--index-path', '--lockfile-path',
       '--range-format', '--missing'
     ])
 
   def cmdListRanges(self, dataset, missing = False, format = None):
-    args = ['btoep-list-ranges', '--dataset', dataset]
+    args = ['--dataset', dataset]
     if missing:
       args.append('--missing')
     if format is not None:
@@ -56,7 +56,7 @@ class ListRangesTest(SystemTest):
     # Test that the command fails if the dataset does not exist.
     dataset = self.reserveDataset()
     self.assertErrorMessage(
-        ['btoep-list-ranges', '--dataset', dataset],
+        ['--dataset', dataset],
         message = 'System input/output error',
         has_ext_message = True,
         lib_error_name = 'ERR_INPUT_OUTPUT',

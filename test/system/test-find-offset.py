@@ -4,21 +4,21 @@ import unittest
 class FindOffsetTest(SystemTest):
 
   def test_info(self):
-    self.assertInfo('btoep-find-offset', [
+    self.assertInfo([
       '--dataset', '--index-path', '--lockfile-path',
       '--start-at', '--stop-at'
     ])
 
   def findOffset(self, dataset, start_at, stop_at):
-    output = self.cmd_stdout(['btoep-find-offset', '--dataset', dataset,
+    output = self.cmd_stdout(['--dataset', dataset,
                               '--start-at', str(start_at),
                               '--stop-at', stop_at],
                              text=True)
     return int(output)
 
   def assertNoResult(self, dataset, start_at, stop_at):
-    self.cmd(['btoep-find-offset', '--dataset', dataset, '--start-at',
-                      str(start_at), '--stop-at', stop_at],
+    self.cmd(['--dataset', dataset, '--start-at',
+              str(start_at), '--stop-at', stop_at],
              expected_returncode = ExitCode.NO_RESULT)
 
   def test_empty_index(self):
@@ -62,8 +62,7 @@ class FindOffsetTest(SystemTest):
     # Test that the command fails if the dataset does not exist.
     dataset = self.reserveDataset()
     self.assertErrorMessage(
-        ['btoep-find-offset', '--dataset', dataset,
-         '--start-at=0', '--stop-at=data'],
+        ['--dataset', dataset, '--start-at=0', '--stop-at=data'],
         message = 'System input/output error',
         has_ext_message = True,
         lib_error_name = 'ERR_INPUT_OUTPUT',

@@ -5,7 +5,7 @@ import unittest
 class AddTest(SystemTest):
 
   def test_info(self):
-    self.assertInfo('btoep-add', [
+    self.assertInfo([
       '--dataset', '--index-path', '--lockfile-path',
       '--offset', '--on-conflict', '--source'
     ])
@@ -15,27 +15,27 @@ class AddTest(SystemTest):
 
     # Create a new dataset.
     dataset = self.reserveDataset()
-    self.cmd(['btoep-add', '--dataset', dataset, '--offset=512'],
+    self.cmd(['--dataset', dataset, '--offset=512'],
              input = all_data[512:640])
     self.assertEqual(self.readDataset(dataset)[512:640], all_data[512:640])
     self.assertEqual(len(self.readDataset(dataset)), 640)
     self.assertEqual(self.readIndex(dataset), b'\x80\x04\x7f')
 
     # Add another, separate range.
-    self.cmd(['btoep-add', '--dataset', dataset, '--offset=1024'],
+    self.cmd(['--dataset', dataset, '--offset=1024'],
              input = all_data[1024:1152])
     self.assertEqual(self.readDataset(dataset)[512:640], all_data[512:640])
     self.assertEqual(self.readDataset(dataset)[1024:1152], all_data[1024:1152])
     self.assertEqual(self.readIndex(dataset), b'\x80\x04\x7f\xff\x02\x7f')
 
     # Add a range that merges both existing ranges, but does not overlap.
-    self.cmd(['btoep-add', '--dataset', dataset, '--offset=640'],
+    self.cmd(['--dataset', dataset, '--offset=640'],
              input = all_data[640:1024])
     self.assertEqual(self.readDataset(dataset)[512:1152], all_data[512:1152])
     self.assertEqual(self.readIndex(dataset), b'\x80\x04\xff\x04')
 
     # Now add a superset.
-    self.cmd(['btoep-add', '--dataset', dataset, '--offset=256'],
+    self.cmd(['--dataset', dataset, '--offset=256'],
              input = all_data[256:1280])
     self.assertEqual(self.readDataset(dataset)[256:1280], all_data[256:1280])
     self.assertEqual(self.readIndex(dataset), b'\x80\x02\xff\x07')
@@ -45,13 +45,13 @@ class AddTest(SystemTest):
 
     # Adding conflicting data with the default/error behavior should not change
     # existing ranges or the file size, and should not modify the index.
-    self.assertErrorMessage(['btoep-add', '--dataset', dataset, '--offset=0'],
+    self.assertErrorMessage(['--dataset', dataset, '--offset=0'],
                             input = conflicting_data,
                             message = 'Data conflicts with existing data',
                             lib_error_name = 'ERR_DATA_CONFLICT',
                             lib_error_code = '5')
 
-    self.assertErrorMessage(['btoep-add', '--dataset', dataset, '--offset=0',
+    self.assertErrorMessage(['--dataset', dataset, '--offset=0',
                              '--on-conflict=error'],
                             input = conflicting_data,
                             message = 'Data conflicts with existing data',
@@ -63,7 +63,7 @@ class AddTest(SystemTest):
     self.assertEqual(len(self.readDataset(dataset)), 1280)
     self.assertEqual(self.readIndex(dataset), b'\x80\x02\xff\x07')
 
-    self.cmd(['btoep-add', '--dataset', dataset, '--offset=0', '--on-conflict=keep'],
+    self.cmd(['--dataset', dataset, '--offset=0', '--on-conflict=keep'],
              input = conflicting_data)
     self.assertEqual(self.readDataset(dataset)[0:256], conflicting_data[0:256])
     self.assertEqual(self.readDataset(dataset)[256:1280], all_data[256:1280])
@@ -71,7 +71,7 @@ class AddTest(SystemTest):
     self.assertEqual(len(self.readDataset(dataset)), len(conflicting_data))
     self.assertEqual(self.readIndex(dataset), b'\x00\xff\x11')
 
-    self.cmd(['btoep-add', '--dataset', dataset, '--offset=0', '--on-conflict=overwrite'],
+    self.cmd(['--dataset', dataset, '--offset=0', '--on-conflict=overwrite'],
              input = all_data)
     self.assertEqual(self.readDataset(dataset), all_data)
     self.assertEqual(len(self.readDataset(dataset)), len(all_data))
@@ -81,14 +81,14 @@ class AddTest(SystemTest):
     # Create a new dataset from a file.
     path = self.createTempTestFile(b'Hello world\n')
     dataset = self.reserveDataset()
-    self.cmd(['btoep-add', '--dataset', dataset, '--source', path, '--offset=0'])
+    self.cmd(['--dataset', dataset, '--source', path, '--offset=0'])
     self.assertEqual(self.readDataset(dataset), b'Hello world\n')
     self.assertEqual(self.readIndex(dataset), b'\x00\x0b')
 
     # Now do the same with Windows-style line endings.
     path = self.createTempTestFile(b'Hello world\r\n')
     dataset = self.reserveDataset()
-    self.cmd(['btoep-add', '--dataset', dataset, '--source', path, '--offset=0'])
+    self.cmd(['--dataset', dataset, '--source', path, '--offset=0'])
     self.assertEqual(self.readDataset(dataset), b'Hello world\r\n')
     self.assertEqual(self.readIndex(dataset), b'\x00\x0c')
 
@@ -96,7 +96,7 @@ class AddTest(SystemTest):
     # Test that the command fails if only the data file is missing
     dataset = self.createDataset(None, b'foo')
     self.assertErrorMessage(
-        ['btoep-add', '--dataset', dataset, '--offset=0'],
+        ['--dataset', dataset, '--offset=0'],
         message = 'System input/output error',
         has_ext_message = True,
         lib_error_name = 'ERR_INPUT_OUTPUT',
@@ -112,7 +112,7 @@ class AddTest(SystemTest):
     # Test that the command fails if only the index file is missing
     dataset = self.createDataset(b'bar', None)
     self.assertErrorMessage(
-        ['btoep-add', '--dataset', dataset, '--offset=0'],
+        ['--dataset', dataset, '--offset=0'],
         message = 'System input/output error',
         has_ext_message = True,
         lib_error_name = 'ERR_INPUT_OUTPUT',
@@ -130,8 +130,7 @@ class AddTest(SystemTest):
     empty_dir = self.createTempTestDir()
     dataset = self.reserveDataset()
     self.assertErrorMessage(
-        ['btoep-add', '--dataset', dataset, '--offset=0',
-         '--source', empty_dir],
+        ['--dataset', dataset, '--offset=0', '--source', empty_dir],
         message = True,
         sys_error_name = 'EACCES' if self.isWindows else 'EISDIR',
         sys_error_code = '13' if self.isWindows else '21')
@@ -140,8 +139,7 @@ class AddTest(SystemTest):
     not_a_file = empty_dir + '/foo'
     dataset = self.reserveDataset()
     self.assertErrorMessage(
-        ['btoep-add', '--dataset', dataset, '--offset=0',
-         '--source', not_a_file],
+        ['--dataset', dataset, '--offset=0', '--source', not_a_file],
         message = True,
         sys_error_name = 'ENOENT',
         sys_error_code = '2')
