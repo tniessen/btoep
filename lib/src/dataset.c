@@ -292,17 +292,6 @@ bool btoep_close(btoep_dataset* dataset) {
   return true;
 }
 
-const char* error_messages[] = {
-  "Success",
-  "System input/output error",
-  "Dataset locked",
-  "Destructive action",
-  "Invalid index format",
-  "Data conflict",
-  "Read out of bounds",
-  "Invalid argument"
-};
-
 void btoep_last_error(btoep_dataset* dataset, btoep_last_error_info* info) {
   memcpy(info, &dataset->last_error, sizeof(btoep_last_error_info));
 }
@@ -311,7 +300,7 @@ const char* btoep_strerror(int error_code) {
   switch (error_code) {
   case B_ERR_INPUT_OUTPUT:         return "System input/output error";
   case B_ERR_DATASET_LOCKED:       return "Dataset locked by another process";
-  case B_ERR_DESTRUCTIVE_ACTION:   return "Action would destroy information";
+  case B_ERR_SIZE_TOO_SMALL:       return "Size too small to contain data";
   case B_ERR_INVALID_INDEX_FORMAT: return "Invalid index format";
   case B_ERR_DATA_CONFLICT:        return "Data conflicts with existing data";
   case B_ERR_READ_OUT_OF_BOUNDS:   return "Read out of bounds";
@@ -324,7 +313,7 @@ const char* btoep_strerror_name(int error_code) {
   switch (error_code) {
   case B_ERR_INPUT_OUTPUT:         return "ERR_INPUT_OUTPUT";
   case B_ERR_DATASET_LOCKED:       return "ERR_DATASET_LOCKED";
-  case B_ERR_DESTRUCTIVE_ACTION:   return "ERR_DESTRUCTIVE_ACTION";
+  case B_ERR_SIZE_TOO_SMALL:       return "ERR_SIZE_TOO_SMALL";
   case B_ERR_INVALID_INDEX_FORMAT: return "ERR_INVALID_INDEX_FORMAT";
   case B_ERR_DATA_CONFLICT:        return "ERR_DATA_CONFLICT";
   case B_ERR_READ_OUT_OF_BOUNDS:   return "ERR_READ_OUT_OF_BOUNDS";
@@ -459,7 +448,7 @@ bool btoep_data_set_size(btoep_dataset* dataset, uint64_t size, bool allow_destr
     if (!btoep_index_contains_any(dataset, relevant_range, &is_destructive))
       return false;
     if (is_destructive)
-      return set_error(dataset, B_ERR_DESTRUCTIVE_ACTION);
+      return set_error(dataset, B_ERR_SIZE_TOO_SMALL);
   }
 
   return fd_truncate(dataset, dataset->data_fd, size);

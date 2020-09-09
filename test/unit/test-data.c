@@ -71,7 +71,7 @@ static void test_data(void) {
   // Attempting to shrink it should fail.
   assert(!btoep_data_set_size(&dataset, 8191, false));
   btoep_last_error(&dataset, &error);
-  assert(error.code == B_ERR_DESTRUCTIVE_ACTION);
+  assert(error.code == B_ERR_SIZE_TOO_SMALL);
 
   // But enlarging it should work.
   assert(btoep_data_set_size(&dataset, 16384, false));
@@ -99,7 +99,7 @@ static void test_data(void) {
   // Shrinking further via a destructive action should also work.
   assert(!btoep_data_set_size(&dataset, 9728, false));
   btoep_last_error(&dataset, &error);
-  assert(error.code == B_ERR_DESTRUCTIVE_ACTION);
+  assert(error.code == B_ERR_SIZE_TOO_SMALL);
   assert(btoep_data_set_size(&dataset, 9728, true));
   assert(btoep_data_get_size(&dataset, &data_size));
   assert(data_size == 9728);

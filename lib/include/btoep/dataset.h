@@ -21,7 +21,7 @@
 
 #define B_ERR_INPUT_OUTPUT         1
 #define B_ERR_DATASET_LOCKED       2
-#define B_ERR_DESTRUCTIVE_ACTION   3
+#define B_ERR_SIZE_TOO_SMALL       3
 #define B_ERR_INVALID_INDEX_FORMAT 4
 #define B_ERR_DATA_CONFLICT        5
 #define B_ERR_READ_OUT_OF_BOUNDS   6

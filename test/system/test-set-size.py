@@ -20,8 +20,8 @@ class SetSizeTest(SystemTest):
   def assertFailDestructive(self, dataset, size):
     self.assertErrorMessage(
         ['--dataset', dataset, '--size', str(size)],
-        message = 'Action would destroy information',
-        lib_error_name = 'ERR_DESTRUCTIVE_ACTION',
+        message = 'Size too small to contain data',
+        lib_error_name = 'ERR_SIZE_TOO_SMALL',
         lib_error_code = '3')
 
   def test_set_size(self):
