@@ -213,6 +213,26 @@ static void test_data(void) {
 #else
   assert(error.system_error_code == EEXIST);
 #endif
+
+  // Open the same dataset again, but in read-only mode.
+  assert(btoep_open(&dataset, "test_data", NULL, NULL,
+                    B_OPEN_EXISTING_READ_ONLY));
+
+  assert(btoep_data_get_size(&dataset, &data_size));
+  assert(!btoep_data_set_size(&dataset, data_size, false));
+  btoep_last_error(&dataset, &error);
+  assert(error.code == B_ERR_DATASET_READ_ONLY);
+
+  assert(!btoep_data_write(&dataset, btoep_mkrange(10, 0), NULL, 0,
+                           BTOEP_CONFLICT_ERROR));
+  btoep_last_error(&dataset, &error);
+  assert(error.code == B_ERR_DATASET_READ_ONLY);
+
+  assert(!btoep_index_add(&dataset, btoep_mkrange(10, 0)));
+  btoep_last_error(&dataset, &error);
+  assert(error.code == B_ERR_DATASET_READ_ONLY);
+
+  assert(btoep_close(&dataset));
 }
 
 TEST_MAIN(test_data)

@@ -27,6 +27,7 @@
 #define B_ERR_READ_OUT_OF_BOUNDS   6
 #define B_ERR_INVALID_ARGUMENT     7
 #define B_ERR_DEAD_INDEX_ITERATOR  8
+#define B_ERR_DATASET_READ_ONLY    9
 
 #define B_OPEN_EXISTING_READ_ONLY   0
 #define B_OPEN_EXISTING_READ_WRITE  1
@@ -63,6 +64,7 @@ typedef struct {
   // File descriptors.
   btoep_fd data_fd;
   btoep_fd index_fd;
+  bool read_only;
 
   // Error information.
   btoep_last_error_info last_error;

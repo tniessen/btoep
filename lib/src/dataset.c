@@ -150,6 +150,8 @@ static bool fd_read(btoep_dataset* dataset, btoep_fd fd, void* out, size_t* n_re
 }
 
 static bool fd_write(btoep_dataset* dataset, btoep_fd fd, const void* data, size_t length) {
+  assert(!dataset->read_only);
+
   const uint8_t* bytes = data;
   while (length > 0) {
 #ifdef _MSC_VER
@@ -258,6 +260,7 @@ bool btoep_open(btoep_dataset* dataset, btoep_path data_path,
   if (!btoep_lock(dataset))
     return false;
 
+  dataset->read_only = (mode == B_OPEN_EXISTING_READ_ONLY);
   if (!open_dataset_fds(dataset, mode)) {
     btoep_unlock(dataset); // TODO: Return value
     return false;
@@ -338,6 +341,9 @@ bool btoep_data_add_range(btoep_dataset* dataset, btoep_range range, const void*
 }
 
 bool btoep_data_write(btoep_dataset* dataset, btoep_range range, const void* data, size_t data_size, int conflict_mode) {
+  if (dataset->read_only)
+    return set_error(dataset, B_ERR_DATASET_READ_ONLY);
+
   btoep_index_iterator iterator;
   if (!btoep_index_iterator_start(dataset, &iterator))
     return false;
@@ -447,6 +453,9 @@ bool btoep_data_get_size(btoep_dataset* dataset, uint64_t* size) {
 }
 
 bool btoep_data_set_size(btoep_dataset* dataset, uint64_t size, bool allow_destructive) {
+  if (dataset->read_only)
+    return set_error(dataset, B_ERR_DATASET_READ_ONLY);
+
   btoep_range relevant_range = btoep_max_range_from(size);
 
   if (allow_destructive) {
@@ -725,6 +734,9 @@ static bool editor_commit(index_editor* editor) {
 
 // TODO: Avoid writing the same entry if a duplicate entry is added (just to avoid dirtying the cache)
 bool btoep_index_add(btoep_dataset* dataset, btoep_range range) {
+  if (dataset->read_only)
+    return set_error(dataset, B_ERR_DATASET_READ_ONLY);
+
   btoep_index_iterator iterator;
   if (!btoep_index_iterator_start(dataset, &iterator))
     return false;
@@ -772,6 +784,9 @@ bool btoep_index_add(btoep_dataset* dataset, btoep_range range) {
 }
 
 bool btoep_index_remove(btoep_dataset* dataset, btoep_range range) {
+  if (dataset->read_only)
+    return set_error(dataset, B_ERR_DATASET_READ_ONLY);
+
   btoep_index_iterator iterator;
   if (!btoep_index_iterator_start(dataset, &iterator))
     return false;
