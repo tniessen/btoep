@@ -6,7 +6,7 @@
 #include "util/common.h"
 
 typedef void (*print_range_fn)(btoep_range range);
-typedef bool (*list_fn)(btoep_dataset* dataset, print_range_fn print_range);
+typedef bool (*list_fn)(btoep_index_iterator* iterator, print_range_fn print_range);
 
 static void print_range_excl(btoep_range range) {
   printf("%" PRIu64 "...%" PRIu64 "\n",
@@ -18,14 +18,14 @@ static void print_range_incl(btoep_range range) {
          range.offset, range.offset + range.length - 1);
 }
 
-static bool list_data_ranges(btoep_dataset* dataset, print_range_fn print_range) {
+static bool list_data_ranges(btoep_index_iterator* iterator, print_range_fn print_range) {
   uint64_t total_size;
-  if (!btoep_data_get_size(dataset, &total_size))
+  if (!btoep_data_get_size(iterator->dataset, &total_size))
     return false;
 
-  while (!btoep_index_iterator_is_eof(dataset)) {
+  while (!btoep_index_iterator_is_eof(iterator)) {
     btoep_range range;
-    if (!btoep_index_iterator_next(dataset, &range))
+    if (!btoep_index_iterator_next(iterator, &range))
       return false;
     print_range(range);
   }
@@ -33,16 +33,16 @@ static bool list_data_ranges(btoep_dataset* dataset, print_range_fn print_range)
   return true;
 }
 
-static bool list_missing_ranges(btoep_dataset* dataset, print_range_fn print_range) {
+static bool list_missing_ranges(btoep_index_iterator* iterator, print_range_fn print_range) {
   uint64_t total_size;
-  if (!btoep_data_get_size(dataset, &total_size))
+  if (!btoep_data_get_size(iterator->dataset, &total_size))
     return false;
 
   uint64_t prev_end_offset = 0;
 
-  while (!btoep_index_iterator_is_eof(dataset)) {
+  while (!btoep_index_iterator_is_eof(iterator)) {
     btoep_range range;
-    if (!btoep_index_iterator_next(dataset, &range))
+    if (!btoep_index_iterator_next(iterator, &range))
       return false;
 
     if (range.offset != 0) {
@@ -107,8 +107,9 @@ int main(int argc, char** argv) {
 
   list_fn list_ranges = opts.missing ? list_missing_ranges : list_data_ranges;
 
-  bool success = btoep_index_iterator_start(&dataset) &&
-                 list_ranges(&dataset, opts.range_format.value);
+  btoep_index_iterator iterator;
+  bool success = btoep_index_iterator_start(&dataset, &iterator) &&
+                 list_ranges(&iterator, opts.range_format.value);
 
   success = btoep_close(&dataset) && success;
 

@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "../include/btoep/dataset.h"
@@ -275,6 +276,13 @@ bool btoep_open(btoep_dataset* dataset, btoep_path data_path,
   dataset->total_index_size = dataset->total_index_size_on_disk;
   dataset->current_index_offset = 0;
 
+  // This is merely to prevent iterators from being used with the wrong dataset,
+  // and is a best-effort way to give different datasets very different index
+  // revision counters. Shifting the random value to the left means that
+  // subsequently incrementing the revision counter is unlikely to cause
+  // collisions.
+  dataset->index_rev = ((uint64_t) rand()) << (64 - 8 * sizeof(int));
+
   dataset->index_cache_range = btoep_mkrange(0, 0);
   dataset->index_cache_is_dirty = false;
 
@@ -305,6 +313,7 @@ const char* btoep_strerror(int error_code) {
   case B_ERR_DATA_CONFLICT:        return "Data conflicts with existing data";
   case B_ERR_READ_OUT_OF_BOUNDS:   return "Read out of bounds";
   case B_ERR_INVALID_ARGUMENT:     return "Invalid argument";
+  case B_ERR_DEAD_INDEX_ITERATOR:  return "Index iterator is too old";
   default:                         return NULL;
   }
 }
@@ -318,6 +327,7 @@ const char* btoep_strerror_name(int error_code) {
   case B_ERR_DATA_CONFLICT:        return "ERR_DATA_CONFLICT";
   case B_ERR_READ_OUT_OF_BOUNDS:   return "ERR_READ_OUT_OF_BOUNDS";
   case B_ERR_INVALID_ARGUMENT:     return "ERR_INVALID_ARGUMENT";
+  case B_ERR_DEAD_INDEX_ITERATOR:  return "ERR_DEAD_INDEX_ITERATOR";
   default:                         return NULL;
   }
 }
@@ -328,7 +338,8 @@ bool btoep_data_add_range(btoep_dataset* dataset, btoep_range range, const void*
 }
 
 bool btoep_data_write(btoep_dataset* dataset, btoep_range range, const void* data, size_t data_size, int conflict_mode) {
-  if (!btoep_index_iterator_start(dataset))
+  btoep_index_iterator iterator;
+  if (!btoep_index_iterator_start(dataset, &iterator))
     return false;
 
   if (data_size < range.length)
@@ -343,19 +354,19 @@ bool btoep_data_write(btoep_dataset* dataset, btoep_range range, const void* dat
   while (range.length != 0) {
     // Try to find an index entry that covers at least some area after the start
     // of the remaining data.
-    while (!btoep_index_iterator_is_eof(dataset)) {
-      if (!btoep_index_iterator_peek(dataset, &entry))
+    while (!btoep_index_iterator_is_eof(&iterator)) {
+      if (!btoep_index_iterator_peek(&iterator, &entry))
         return false;
       if (btoep_range_intersect(&entry, range))
         break;
-      if (!btoep_index_iterator_skip(dataset))
+      if (!btoep_index_iterator_skip(&iterator))
         return false;
     }
 
     // If no entry exists, we can write the rest of the data.
     // If an entry exists, we can write up to the entry.
     uint64_t safe_length = range.length;
-    if (!btoep_index_iterator_is_eof(dataset))
+    if (!btoep_index_iterator_is_eof(&iterator))
       safe_length = entry.offset - range.offset;
 
     if (!fd_write(dataset, dataset->data_fd, remaining_data, safe_length))
@@ -364,7 +375,7 @@ bool btoep_data_write(btoep_dataset* dataset, btoep_range range, const void* dat
     range = btoep_range_remove_left(range, safe_length);
     remaining_data += safe_length;
 
-    if (!btoep_index_iterator_is_eof(dataset)) {
+    if (!btoep_index_iterator_is_eof(&iterator)) {
       // This is existing data.
       if (conflict_mode == BTOEP_CONFLICT_KEEP_OLD) {
         // Simply ignore the data and skip ahead.
@@ -543,9 +554,11 @@ static bool btoep_index_fill_cache(btoep_dataset* dataset, btoep_range range) {
   return true;
 }
 
-bool btoep_index_iterator_start(btoep_dataset* dataset) {
-  dataset->iter_index_offset = 0;
-  dataset->iter_data_offset = 0;
+bool btoep_index_iterator_start(btoep_dataset* dataset, btoep_index_iterator* iterator) {
+  iterator->index_offset = 0;
+  iterator->data_offset = 0;
+  iterator->dataset = dataset;
+  iterator->index_rev = dataset->index_rev;
   return true;
 }
 
@@ -583,23 +596,26 @@ static inline void write_uleb128(uint8_t* out, uint64_t value, size_t* length) {
   } while (value > 0);
 }
 
-static bool btoep_index_read(btoep_dataset* dataset, uint64_t* next_offset, btoep_range* range) {
-  btoep_range cache_range = { dataset->iter_index_offset, 1024 };
-  if (!btoep_index_fill_cache(dataset, cache_range))
+static bool btoep_index_read(btoep_index_iterator* iterator, uint64_t* next_offset, btoep_range* range) {
+  if (iterator->index_rev != iterator->dataset->index_rev)
+    return set_error(iterator->dataset, B_ERR_DEAD_INDEX_ITERATOR);
+
+  btoep_range cache_range = { iterator->index_offset, 1024 };
+  if (!btoep_index_fill_cache(iterator->dataset, cache_range))
     return false;
 
   uint64_t missing_bytes, existing_bytes;
-  *next_offset = dataset->iter_index_offset;
-  if (!btoep_index_uleb128(dataset, next_offset, &missing_bytes))
+  *next_offset = iterator->index_offset;
+  if (!btoep_index_uleb128(iterator->dataset, next_offset, &missing_bytes))
     return false;
-  if (!btoep_index_uleb128(dataset, next_offset, &existing_bytes))
+  if (!btoep_index_uleb128(iterator->dataset, next_offset, &existing_bytes))
     return false;
 
-  int is_first = dataset->iter_data_offset == 0;
+  int is_first = iterator->data_offset == 0;
   if (is_first) {
     range->offset = missing_bytes;
   } else {
-    range->offset = dataset->iter_data_offset + missing_bytes + 1;
+    range->offset = iterator->data_offset + missing_bytes + 1;
   }
 
   range->length = existing_bytes + 1;
@@ -607,29 +623,29 @@ static bool btoep_index_read(btoep_dataset* dataset, uint64_t* next_offset, btoe
   return 1;
 }
 
-bool btoep_index_iterator_next(btoep_dataset* dataset, btoep_range* range) {
+bool btoep_index_iterator_next(btoep_index_iterator* iterator, btoep_range* range) {
   uint64_t offset_in_index;
-  bool ret = btoep_index_read(dataset, &offset_in_index, range);
+  bool ret = btoep_index_read(iterator, &offset_in_index, range);
   if (ret) {
-    dataset->iter_index_offset = offset_in_index;
-    dataset->iter_data_offset = range->offset + range->length;
+    iterator->index_offset = offset_in_index;
+    iterator->data_offset = range->offset + range->length;
   }
   return ret;
 }
 
-bool btoep_index_iterator_peek(btoep_dataset* dataset, btoep_range* range) {
+bool btoep_index_iterator_peek(btoep_index_iterator* iterator, btoep_range* range) {
   uint64_t offset_in_index;
-  return btoep_index_read(dataset, &offset_in_index, range);
+  return btoep_index_read(iterator, &offset_in_index, range);
 }
 
-bool btoep_index_iterator_skip(btoep_dataset* dataset) {
+bool btoep_index_iterator_skip(btoep_index_iterator* iterator) {
   btoep_range range;
-  return btoep_index_iterator_next(dataset, &range);
+  return btoep_index_iterator_next(iterator, &range);
 }
 
-bool btoep_index_iterator_is_eof(btoep_dataset* dataset) {
-  assert(dataset->iter_index_offset <= dataset->total_index_size);
-  return dataset->iter_index_offset == dataset->total_index_size;
+bool btoep_index_iterator_is_eof(btoep_index_iterator* iterator) {
+  assert(iterator->index_offset <= iterator->dataset->total_index_size);
+  return iterator->index_offset == iterator->dataset->total_index_size;
 }
 
 typedef struct {
@@ -701,12 +717,16 @@ static bool editor_commit(index_editor* editor) {
   cache_range.length = new_index_size - editor->replace_start;
   btoep_index_cache_mark_dirty(dataset, cache_range);
 
+  // Prevent existing iterators from being used.
+  dataset->index_rev++;
+
   return true;
 }
 
 // TODO: Avoid writing the same entry if a duplicate entry is added (just to avoid dirtying the cache)
 bool btoep_index_add(btoep_dataset* dataset, btoep_range range) {
-  if (!btoep_index_iterator_start(dataset))
+  btoep_index_iterator iterator;
+  if (!btoep_index_iterator_start(dataset, &iterator))
     return false;
 
   btoep_range entry;
@@ -716,24 +736,24 @@ bool btoep_index_add(btoep_dataset* dataset, btoep_range range) {
   editor_init(dataset, &editor, editor_buffer);
 
   // First, skip all entries to the left of the new range.
-  while (!btoep_index_iterator_is_eof(dataset)) {
-    if (!btoep_index_iterator_peek(dataset, &entry))
+  while (!btoep_index_iterator_is_eof(&iterator)) {
+    if (!btoep_index_iterator_peek(&iterator, &entry))
       return false;
     if (entry.offset + entry.length >= range.offset)
       break;
-    if (!btoep_index_iterator_skip(dataset))
+    if (!btoep_index_iterator_skip(&iterator))
       return false;
   }
 
-  editor_set_start(&editor, dataset->iter_index_offset, dataset->iter_data_offset);
+  editor_set_start(&editor, iterator.index_offset, iterator.data_offset);
 
   // Next, find all entries that we can merge.
-  while (!btoep_index_iterator_is_eof(dataset)) {
-    if (!btoep_index_iterator_peek(dataset, &entry))
+  while (!btoep_index_iterator_is_eof(&iterator)) {
+    if (!btoep_index_iterator_peek(&iterator, &entry))
       return false;
     if (!btoep_range_union(&range, entry))
       break;
-    if (!btoep_index_iterator_skip(dataset))
+    if (!btoep_index_iterator_skip(&iterator))
       return false;
   }
 
@@ -741,18 +761,19 @@ bool btoep_index_add(btoep_dataset* dataset, btoep_range range) {
   editor_write_range(&editor, &range);
 
   // If we are not at the end of the index yet, we will also need to modify the next entry.
-  if (!btoep_index_iterator_is_eof(dataset)) {
-    if (!btoep_index_iterator_next(dataset, &entry))
+  if (!btoep_index_iterator_is_eof(&iterator)) {
+    if (!btoep_index_iterator_next(&iterator, &entry))
       return false;
     editor_write_range(&editor, &entry);
   }
 
-  editor_set_end(&editor, dataset->iter_index_offset);
+  editor_set_end(&editor, iterator.index_offset);
   return editor_commit(&editor);
 }
 
 bool btoep_index_remove(btoep_dataset* dataset, btoep_range range) {
-  if (!btoep_index_iterator_start(dataset))
+  btoep_index_iterator iterator;
+  if (!btoep_index_iterator_start(dataset, &iterator))
     return false;
 
   btoep_range entry;
@@ -762,23 +783,23 @@ bool btoep_index_remove(btoep_dataset* dataset, btoep_range range) {
   editor_init(dataset, &editor, editor_buffer);
 
   // First, skip all entries to the left of the range that we need to delete.
-  while (!btoep_index_iterator_is_eof(dataset)) {
-    if (!btoep_index_iterator_peek(dataset, &entry))
+  while (!btoep_index_iterator_is_eof(&iterator)) {
+    if (!btoep_index_iterator_peek(&iterator, &entry))
       return false;
     if (entry.offset + entry.length >= range.offset)
       break;
-    if (!btoep_index_iterator_skip(dataset))
+    if (!btoep_index_iterator_skip(&iterator))
       return false;
   }
 
-  editor_set_start(&editor, dataset->iter_index_offset, dataset->iter_data_offset);
+  editor_set_start(&editor, iterator.index_offset, iterator.data_offset);
 
-  while (!btoep_index_iterator_is_eof(dataset)) {
-    if (!btoep_index_iterator_peek(dataset, &entry))
+  while (!btoep_index_iterator_is_eof(&iterator)) {
+    if (!btoep_index_iterator_peek(&iterator, &entry))
       return false;
     if (!btoep_range_overlaps(entry, range))
       break;
-    if (!btoep_index_iterator_skip(dataset))
+    if (!btoep_index_iterator_skip(&iterator))
       return false;
 
     btoep_range right_part_of_split_entry;
@@ -791,24 +812,25 @@ bool btoep_index_remove(btoep_dataset* dataset, btoep_range range) {
 
   // If we are not at the end of the index yet, we will also need to modify the next entry.
   // TODO: This is only necessary if we did not create a right part for the previous entry. Assert that.
-  if (!btoep_index_iterator_is_eof(dataset)) {
-    if (!btoep_index_iterator_next(dataset, &entry))
+  if (!btoep_index_iterator_is_eof(&iterator)) {
+    if (!btoep_index_iterator_next(&iterator, &entry))
       return false;
     editor_write_range(&editor, &entry);
   }
 
-  editor_set_end(&editor, dataset->iter_index_offset);
+  editor_set_end(&editor, iterator.index_offset);
   return editor_commit(&editor);
 }
 
 bool btoep_index_find_offset(btoep_dataset* dataset, uint64_t start, int mode,
                              bool* exists, uint64_t* offset) {
-  if (!btoep_index_iterator_start(dataset))
+  btoep_index_iterator iterator;
+  if (!btoep_index_iterator_start(dataset, &iterator))
     return false;
 
   btoep_range range;
-  while (!btoep_index_iterator_is_eof(dataset)) {
-    if (!btoep_index_iterator_next(dataset, &range))
+  while (!btoep_index_iterator_is_eof(&iterator)) {
+    if (!btoep_index_iterator_next(&iterator, &range))
       return false;
     if (range.offset > start) {
       *offset = (mode == BTOEP_FIND_DATA) ? range.offset : start;
@@ -837,12 +859,13 @@ bool btoep_index_contains(btoep_dataset* dataset, btoep_range range, bool* resul
     return true;
   }
 
-  if (!btoep_index_iterator_start(dataset))
+  btoep_index_iterator iterator;
+  if (!btoep_index_iterator_start(dataset, &iterator))
     return false;
 
-  while (!btoep_index_iterator_is_eof(dataset)) {
+  while (!btoep_index_iterator_is_eof(&iterator)) {
     btoep_range entry;
-    if (!btoep_index_iterator_next(dataset, &entry))
+    if (!btoep_index_iterator_next(&iterator, &entry))
       return false;
 
     if (btoep_range_is_subset(entry, range)) {
@@ -859,12 +882,13 @@ bool btoep_index_contains(btoep_dataset* dataset, btoep_range range, bool* resul
 }
 
 bool btoep_index_contains_any(btoep_dataset* dataset, btoep_range range, bool* result) {
-  if (!btoep_index_iterator_start(dataset))
+  btoep_index_iterator iterator;
+  if (!btoep_index_iterator_start(dataset, &iterator))
     return false;
 
-  while (!btoep_index_iterator_is_eof(dataset)) {
+  while (!btoep_index_iterator_is_eof(&iterator)) {
     btoep_range entry;
-    if (!btoep_index_iterator_next(dataset, &entry))
+    if (!btoep_index_iterator_next(&iterator, &entry))
       return false;
 
     if (btoep_range_intersect(&entry, range)) {

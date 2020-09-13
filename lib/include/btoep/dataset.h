@@ -26,6 +26,7 @@
 #define B_ERR_DATA_CONFLICT        5
 #define B_ERR_READ_OUT_OF_BOUNDS   6
 #define B_ERR_INVALID_ARGUMENT     7
+#define B_ERR_DEAD_INDEX_ITERATOR  8
 
 #define B_OPEN_EXISTING_READ_ONLY   0
 #define B_OPEN_EXISTING_READ_WRITE  1
@@ -71,9 +72,9 @@ typedef struct {
   uint64_t total_index_size;
   uint64_t total_index_size_on_disk;
 
-  // Position of index iterator.
-  uint64_t iter_index_offset;
-  uint64_t iter_data_offset;
+  // Index revision. This prevents iterators to be used after the index has
+  // changed.
+  uint64_t index_rev;
 
   // Index cache.
   uint8_t index_cache[BTOEP_INDEX_CACHE_SIZE];
@@ -81,6 +82,17 @@ typedef struct {
   bool index_cache_is_dirty;
   btoep_range index_cache_dirty_range;
 } btoep_dataset;
+
+/* Used to iterate over the index of a dataset. */
+typedef struct {
+  // Position of the iterator.
+  uint64_t index_offset;
+  uint64_t data_offset;
+
+  // Index revision.
+  btoep_dataset* dataset;
+  uint64_t index_rev;
+} btoep_index_iterator;
 
 /*
  * State management
@@ -146,18 +158,20 @@ bool btoep_data_set_size(btoep_dataset* dataset, uint64_t size, bool allow_destr
  * Index API
  */
 
-bool btoep_index_iterator_start(btoep_dataset* dataset);
+bool btoep_index_iterator_start(btoep_dataset* dataset, btoep_index_iterator* iter);
 
-bool btoep_index_iterator_next(btoep_dataset* dataset, btoep_range* range);
+bool btoep_index_iterator_next(btoep_index_iterator* iter, btoep_range* range);
 
-bool btoep_index_iterator_peek(btoep_dataset* dataset, btoep_range* range);
+bool btoep_index_iterator_peek(btoep_index_iterator* iter, btoep_range* range);
 
-bool btoep_index_iterator_skip(btoep_dataset* dataset);
+bool btoep_index_iterator_skip(btoep_index_iterator* iter);
 
-bool btoep_index_iterator_is_eof(btoep_dataset* dataset);
+bool btoep_index_iterator_is_eof(btoep_index_iterator* iter);
 
+/* This invalidates all existing iterators. */
 bool btoep_index_add(btoep_dataset* dataset, btoep_range range);
 
+/* This invalidates all existing iterators. */
 bool btoep_index_remove(btoep_dataset* dataset, btoep_range range);
 
 #define BTOEP_FIND_DATA    1

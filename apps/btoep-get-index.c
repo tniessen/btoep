@@ -28,14 +28,15 @@ static uint64_t write_range(btoep_range range, uint64_t prev_end) {
 }
 
 static bool print_index(btoep_dataset* dataset, uint64_t min_length) {
-  if (!btoep_index_iterator_start(dataset))
+  btoep_index_iterator iterator;
+  if (!btoep_index_iterator_start(dataset, &iterator))
     return false;
 
   uint64_t prev_end = 0;
 
-  while (!btoep_index_iterator_is_eof(dataset)) {
+  while (!btoep_index_iterator_is_eof(&iterator)) {
     btoep_range range;
-    if (!btoep_index_iterator_next(dataset, &range))
+    if (!btoep_index_iterator_next(&iterator, &range))
       return false;
     if (range.length >= min_length)
       prev_end = write_range(range, prev_end);
@@ -81,8 +82,7 @@ int main(int argc, char** argv) {
   _setmode(fileno(stdout), _O_BINARY);
 #endif
 
-  bool success = btoep_index_iterator_start(&dataset) &&
-                 print_index(&dataset, opts.min_range_length.value);
+  bool success = print_index(&dataset, opts.min_range_length.value);
 
   success = btoep_close(&dataset) && success;
 

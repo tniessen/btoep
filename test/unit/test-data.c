@@ -16,14 +16,15 @@ static void test_data(void) {
   uint8_t buffer[64 * 1024];
   uint64_t data_size;
   btoep_last_error_info error;
+  btoep_index_iterator iterator;
 
   // Create the (empty) dataset.
   assert(btoep_open(&dataset, "test_data", NULL, NULL,
                     B_CREATE_NEW_READ_WRITE));
 
   // Make sure the index is empty.
-  assert(btoep_index_iterator_start(&dataset));
-  assert(btoep_index_iterator_is_eof(&dataset));
+  assert(btoep_index_iterator_start(&dataset, &iterator));
+  assert(btoep_index_iterator_is_eof(&iterator));
 
   // Add some data.
   range = btoep_mkrange(7168, 1024);
@@ -35,34 +36,34 @@ static void test_data(void) {
   assert(data_size == 8192);
 
   // Make sure the range was created correctly.
-  assert(btoep_index_iterator_start(&dataset));
-  assert(!btoep_index_iterator_is_eof(&dataset));
-  assert(btoep_index_iterator_next(&dataset, &range));
+  assert(btoep_index_iterator_start(&dataset, &iterator));
+  assert(!btoep_index_iterator_is_eof(&iterator));
+  assert(btoep_index_iterator_next(&iterator, &range));
   assert(range.offset == 7168 && range.length == 1024);
-  assert(btoep_index_iterator_is_eof(&dataset));
+  assert(btoep_index_iterator_is_eof(&iterator));
 
   // Add another range, and iterate again.
   range = btoep_mkrange(1024, 512);
   memset(buffer, 0xff, range.length);
   assert(btoep_data_add_range(&dataset, range, buffer, BTOEP_CONFLICT_ERROR));
-  assert(btoep_index_iterator_start(&dataset));
-  assert(!btoep_index_iterator_is_eof(&dataset));
-  assert(btoep_index_iterator_next(&dataset, &range));
+  assert(btoep_index_iterator_start(&dataset, &iterator));
+  assert(!btoep_index_iterator_is_eof(&iterator));
+  assert(btoep_index_iterator_next(&iterator, &range));
   assert(range.offset == 1024 && range.length == 512);
-  assert(!btoep_index_iterator_is_eof(&dataset));
-  assert(btoep_index_iterator_next(&dataset, &range));
+  assert(!btoep_index_iterator_is_eof(&iterator));
+  assert(btoep_index_iterator_next(&iterator, &range));
   assert(range.offset == 7168 && range.length == 1024);
-  assert(btoep_index_iterator_is_eof(&dataset));
+  assert(btoep_index_iterator_is_eof(&iterator));
 
   // Add another range inbetween the previous ones.
   range = btoep_mkrange(1536, 5632);
   memset(buffer, 0xdd, range.length);
   assert(btoep_data_add_range(&dataset, range, buffer, BTOEP_CONFLICT_ERROR));
-  assert(btoep_index_iterator_start(&dataset));
-  assert(!btoep_index_iterator_is_eof(&dataset));
-  assert(btoep_index_iterator_next(&dataset, &range));
+  assert(btoep_index_iterator_start(&dataset, &iterator));
+  assert(!btoep_index_iterator_is_eof(&iterator));
+  assert(btoep_index_iterator_next(&iterator, &range));
   assert(range.offset == 1024 && range.length == 7168);
-  assert(btoep_index_iterator_is_eof(&dataset));
+  assert(btoep_index_iterator_is_eof(&iterator));
 
   // The file should still have the same size.
   assert(btoep_data_get_size(&dataset, &data_size));
@@ -82,14 +83,14 @@ static void test_data(void) {
   range = btoep_mkrange(9216, 1024);
   memset(buffer, 0xaa, range.length);
   assert(btoep_data_add_range(&dataset, range, buffer, BTOEP_CONFLICT_ERROR));
-  assert(btoep_index_iterator_start(&dataset));
-  assert(!btoep_index_iterator_is_eof(&dataset));
-  assert(btoep_index_iterator_next(&dataset, &range));
+  assert(btoep_index_iterator_start(&dataset, &iterator));
+  assert(!btoep_index_iterator_is_eof(&iterator));
+  assert(btoep_index_iterator_next(&iterator, &range));
   assert(range.offset == 1024 && range.length == 7168);
-  assert(!btoep_index_iterator_is_eof(&dataset));
-  assert(btoep_index_iterator_next(&dataset, &range));
+  assert(!btoep_index_iterator_is_eof(&iterator));
+  assert(btoep_index_iterator_next(&iterator, &range));
   assert(range.offset == 9216 && range.length == 1024);
-  assert(btoep_index_iterator_is_eof(&dataset));
+  assert(btoep_index_iterator_is_eof(&iterator));
 
   // There is some empty space at the end, so shrinking should work.
   assert(btoep_data_set_size(&dataset, 10240, false));
@@ -105,14 +106,14 @@ static void test_data(void) {
   assert(data_size == 9728);
 
   // Destructive shrinking should automatically update the index.
-  assert(btoep_index_iterator_start(&dataset));
-  assert(!btoep_index_iterator_is_eof(&dataset));
-  assert(btoep_index_iterator_next(&dataset, &range));
+  assert(btoep_index_iterator_start(&dataset, &iterator));
+  assert(!btoep_index_iterator_is_eof(&iterator));
+  assert(btoep_index_iterator_next(&iterator, &range));
   assert(range.offset == 1024 && range.length == 7168);
-  assert(!btoep_index_iterator_is_eof(&dataset));
-  assert(btoep_index_iterator_next(&dataset, &range));
+  assert(!btoep_index_iterator_is_eof(&iterator));
+  assert(btoep_index_iterator_next(&iterator, &range));
   assert(range.offset == 9216 && range.length == 512);
-  assert(btoep_index_iterator_is_eof(&dataset));
+  assert(btoep_index_iterator_is_eof(&iterator));
 
   // Adding an overlapping range with conflicting data should fail.
   range = btoep_mkrange(1000, 3000);
@@ -122,14 +123,14 @@ static void test_data(void) {
   assert(error.code == B_ERR_DATA_CONFLICT);
 
   // This should not have updated the index.
-  assert(btoep_index_iterator_start(&dataset));
-  assert(!btoep_index_iterator_is_eof(&dataset));
-  assert(btoep_index_iterator_next(&dataset, &range));
+  assert(btoep_index_iterator_start(&dataset, &iterator));
+  assert(!btoep_index_iterator_is_eof(&iterator));
+  assert(btoep_index_iterator_next(&iterator, &range));
   assert(range.offset == 1024 && range.length == 7168);
-  assert(!btoep_index_iterator_is_eof(&dataset));
-  assert(btoep_index_iterator_next(&dataset, &range));
+  assert(!btoep_index_iterator_is_eof(&iterator));
+  assert(btoep_index_iterator_next(&iterator, &range));
   assert(range.offset == 9216 && range.length == 512);
-  assert(btoep_index_iterator_is_eof(&dataset));
+  assert(btoep_index_iterator_is_eof(&iterator));
 
   // Summary:
   // The file now has a size of 9728 bytes.
@@ -194,11 +195,11 @@ static void test_data(void) {
   assert(btoep_data_add_range(&dataset, range, buffer, BTOEP_CONFLICT_ERROR));
 
   // Make sure that the index was updated correctly.
-  assert(btoep_index_iterator_start(&dataset));
-  assert(!btoep_index_iterator_is_eof(&dataset));
-  assert(btoep_index_iterator_next(&dataset, &range));
+  assert(btoep_index_iterator_start(&dataset, &iterator));
+  assert(!btoep_index_iterator_is_eof(&iterator));
+  assert(btoep_index_iterator_next(&iterator, &range));
   assert(range.offset == 0 && range.length == 10240);
-  assert(btoep_index_iterator_is_eof(&dataset));
+  assert(btoep_index_iterator_is_eof(&iterator));
 
   assert(btoep_close(&dataset));
 
