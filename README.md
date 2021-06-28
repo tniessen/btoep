@@ -126,9 +126,9 @@ the `build` directory, run `ctest` to execute all unit and system tests.
 This project uses [GitHub Actions](.github/workflows) for automated testing on
 supported platforms. These tests cover the following platforms:
 
-| Operating System   | Compiler   | Notes                                    |
-| ------------------ | ---------- | ---------------------------------------- |
-| Ubuntu (latest)    | GNU        |                                          |
-| macOS (latest)     | AppleClang |                                          |
-| Windows (latest)   | MSVC       |                                          |
-| WSL (Ubuntu 18.04) | GNU        | Automated testing covers unit tests only |
+| Operating System   | Compiler   |
+| ------------------ | ---------- |
+| Ubuntu (latest)    | GNU        |
+| macOS (latest)     | AppleClang |
+| Windows (latest)   | MSVC       |
+| WSL (Ubuntu 20.04) | GNU        |
