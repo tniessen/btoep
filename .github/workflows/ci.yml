@@ -51,17 +51,17 @@ jobs:
         id: distrocache
         with:
           path: distro.zip
-          key: distro-ubuntu1804
+          key: distro-ubuntu2004
       - name: Download WSL distribution
         if: steps.distrocache.outputs.cache-hit != 'true'
         shell: powershell
-        run: Invoke-WebRequest -Uri https://aka.ms/wsl-ubuntu-1804 -OutFile distro.zip -UseBasicParsing
+        run: Invoke-WebRequest -Uri https://aka.ms/wslubuntu2004 -OutFile distro.zip -UseBasicParsing
       - name: Extract WSL distribution
         shell: powershell
         run: Expand-Archive .\distro.zip .\distro
       - name: Install WSL distribution
         shell: powershell
-        run: .\distro\ubuntu1804.exe install --root
+        run: .\distro\ubuntu2004.exe install --root
       - name: Update distribution dependency information
         run: wsl -u root -- apt-get update
       - name: Install CMake and build-essential
