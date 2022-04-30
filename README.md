@@ -131,4 +131,3 @@ supported platforms. These tests cover the following platforms:
 | Ubuntu (latest)    | GNU        |
 | macOS (latest)     | AppleClang |
 | Windows (latest)   | MSVC       |
-| WSL (Ubuntu 20.04) | GNU        |
