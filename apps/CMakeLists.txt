@@ -34,10 +34,12 @@ function(preprocess_c_header header out_var)
       message(FATAL_ERROR "Unable to find vcvarsall.bat for MSVC.")
     endif()
 
-    execute_process(COMMAND "${vcvarsall_bat_path}" ${CMAKE_C_COMPILER_ARCHITECTURE_ID} && "${CMAKE_C_COMPILER}" /P /d1PP /C "${CMAKE_BINARY_DIR}/temp.c"
+    file(WRITE "${CMAKE_BINARY_DIR}/temp.bat" "\"${vcvarsall_bat_path}\" ${CMAKE_C_COMPILER_ARCHITECTURE_ID} && \"${CMAKE_C_COMPILER}\" /P /d1PP /C \"${CMAKE_BINARY_DIR}/temp.c\"")
+    execute_process(COMMAND "${CMAKE_BINARY_DIR}/temp.bat"
                     OUTPUT_QUIET)
     file(READ "${CMAKE_BINARY_DIR}/temp.i" temp_var)
     file(REMOVE "${CMAKE_BINARY_DIR}/temp.i")
+    file(REMOVE "${CMAKE_BINARY_DIR}/temp.bat")
   elseif(APPLE)
     execute_process(COMMAND "${CMAKE_C_COMPILER}" -isysroot "${CMAKE_OSX_SYSROOT}" -E -dD "${CMAKE_BINARY_DIR}/temp.c"
                     OUTPUT_VARIABLE temp_var)
